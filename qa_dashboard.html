@@ -226,7 +226,7 @@ td.bad  { color: var(--red); }
           <select id="weekTeam">
             <option value="ALL">All teams</option>
             <option value="Premium Support">Premium Support</option>
-            <option value="Partner Support">Partner Support</option>
+            <option value="Standard Support">Standard Support</option>
           </select>
         </span>
         <button class="btn" onclick="renderWeekly()">Apply</button>
@@ -279,7 +279,7 @@ td.bad  { color: var(--red); }
           <select id="monthTeam">
             <option value="ALL">All teams</option>
             <option value="Premium Support">Premium Support</option>
-            <option value="Partner Support">Partner Support</option>
+            <option value="Standard Support">Standard Support</option>
           </select>
         </span>
         <button class="btn" onclick="renderMonthly()">Apply</button>
@@ -327,7 +327,7 @@ td.bad  { color: var(--red); }
           <select id="dispTeam">
             <option value="ALL">All teams</option>
             <option value="Premium Support">Premium Support</option>
-            <option value="Partner Support">Partner Support</option>
+            <option value="Standard Support">Standard Support</option>
           </select>
         </span>
         <span><label class="lbl">Status</label>
@@ -374,7 +374,7 @@ td.bad  { color: var(--red); }
           <select id="fqTeam">
             <option value="ALL">All teams</option>
             <option value="Premium Support">Premium Support</option>
-            <option value="Partner Support">Partner Support</option>
+            <option value="Standard Support">Standard Support</option>
           </select>
         </span>
         <button class="btn" onclick="renderFailedQ()">Apply</button>
@@ -426,7 +426,7 @@ td.bad  { color: var(--red); }
           <canvas id="secPremiumChart"></canvas>
         </div>
         <div class="panel">
-          <h3>Avg score by section — Partner Support</h3>
+          <h3>Avg score by section — Standard Support</h3>
           <canvas id="secPartnerChart"></canvas>
         </div>
       </div>
@@ -586,7 +586,7 @@ function renderWeekly(){
 
   // KPIs
   const premRow = allWeeks.find(r=>r.week_start===week&&r.team==='Premium Support'&&!r.supervisor)||{};
-  const partRow = allWeeks.find(r=>r.week_start===week&&r.team==='Partner Support'&&!r.supervisor)||{};
+  const partRow = allWeeks.find(r=>r.week_start===week&&r.team==='Standard Support'&&!r.supervisor)||{};
   const allRow  = allWeeks.find(r=>r.week_start===week&&r.team==='ALL')||{};
 
   document.getElementById('wKpis').innerHTML = [
@@ -626,7 +626,7 @@ function renderWeekly(){
       labels: weeks12,
       datasets:[
         { label:'Premium', data: weeks12.map(w=>{ const r=allWeeks.find(x=>x.week_start===w&&x.team==='Premium Support'&&!x.supervisor); return r?n(r.avg_score_pct):null; }), borderColor:'var(--premium)', backgroundColor:'#4f8ef722', tension:.3, fill:true, pointRadius:3, spanGaps:true },
-        { label:'Partner', data: weeks12.map(w=>{ const r=allWeeks.find(x=>x.week_start===w&&x.team==='Partner Support'&&!x.supervisor); return r?n(r.avg_score_pct):null; }), borderColor:'var(--partner)', backgroundColor:'#a78bfa22', tension:.3, fill:true, pointRadius:3, spanGaps:true }
+        { label:'Partner', data: weeks12.map(w=>{ const r=allWeeks.find(x=>x.week_start===w&&x.team==='Standard Support'&&!x.supervisor); return r?n(r.avg_score_pct):null; }), borderColor:'var(--partner)', backgroundColor:'#a78bfa22', tension:.3, fill:true, pointRadius:3, spanGaps:true }
       ]
     },
     options:{ scales:{ x:{ticks:{color:'#6b7a99',font:{size:10}},grid:{color:'#1d2535'}}, y:{ticks:{color:'#6b7a99'},grid:{color:'#1d2535'},beginAtZero:false,min:50,max:100} }, plugins:{legend:{labels:{color:'#e2e8f4',font:{size:11}}}} }
@@ -637,7 +637,7 @@ function renderWeekly(){
   charts.weekEval = new Chart(document.getElementById('weekEvalChart'),{
     type:'bar',
     data:{
-      labels:['Premium Support','Partner Support'],
+      labels:['Premium Support','Standard Support'],
       datasets:[{ label:'Evaluations', data:[n(premRow.manual_eval_count,0),n(partRow.manual_eval_count,0)], backgroundColor:['var(--premium)','var(--partner)'], borderRadius:5 }]
     },
     options:{ plugins:{legend:{display:false}}, scales:{ x:{ticks:{color:'#6b7a99'},grid:{display:false}}, y:{ticks:{color:'#6b7a99'},grid:{color:'#1d2535'},beginAtZero:true} } }
@@ -664,7 +664,7 @@ function renderMonthly(){
   const team  = document.getElementById('monthTeam').value;
 
   const premRow = RAW.monthly.find(r=>r.month===month&&r.team==='Premium Support')||{};
-  const partRow = RAW.monthly.find(r=>r.month===month&&r.team==='Partner Support')||{};
+  const partRow = RAW.monthly.find(r=>r.month===month&&r.team==='Standard Support')||{};
   const rows    = team==='ALL'?[premRow,partRow]:[RAW.monthly.find(r=>r.month===month&&r.team===team)||{}];
 
   const totalEvals = (n(premRow.manual_eval_count,0)+n(partRow.manual_eval_count,0));
@@ -695,7 +695,7 @@ function renderMonthly(){
       labels: months6,
       datasets:[
         { label:'Premium', data:months6.map(m=>{ const r=RAW.monthly.find(x=>x.month===m&&x.team==='Premium Support'); return r?n(r.avg_score_pct):null; }), borderColor:'var(--premium)', backgroundColor:'#4f8ef722', tension:.3, fill:true, pointRadius:4, spanGaps:true },
-        { label:'Partner', data:months6.map(m=>{ const r=RAW.monthly.find(x=>x.month===m&&x.team==='Partner Support'); return r?n(r.avg_score_pct):null; }), borderColor:'var(--partner)', backgroundColor:'#a78bfa22', tension:.3, fill:true, pointRadius:4, spanGaps:true }
+        { label:'Partner', data:months6.map(m=>{ const r=RAW.monthly.find(x=>x.month===m&&x.team==='Standard Support'); return r?n(r.avg_score_pct):null; }), borderColor:'var(--partner)', backgroundColor:'#a78bfa22', tension:.3, fill:true, pointRadius:4, spanGaps:true }
       ]
     },
     options:{ scales:{ x:{ticks:{color:'#6b7a99',font:{size:10}},grid:{color:'#1d2535'}}, y:{ticks:{color:'#6b7a99'},grid:{color:'#1d2535'},min:50,max:100} }, plugins:{legend:{labels:{color:'#e2e8f4',font:{size:11}}}} }
@@ -827,7 +827,7 @@ function renderSections(){
   const month=document.getElementById('secMonth').value;
   const rows=RAW.sections.filter(r=>r.month===month);
   const prem=rows.filter(r=>r.team==='Premium Support');
-  const part=rows.filter(r=>r.team==='Partner Support');
+  const part=rows.filter(r=>r.team==='Standard Support');
 
   function sectionChart(canvasId,data,color){
     destroyChart(canvasId);
