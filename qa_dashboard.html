@@ -168,12 +168,12 @@ td.warn { color: var(--amber); }
 td.bad  { color: var(--red); }
 .badge {
   display: inline-block; font-size: 10px; padding: 2px 7px; border-radius: 20px;
-  font-family: 'DM Mono', monospace;
+  font-family: 'DM Mono', monospace; font-weight: 600;
 }
-.badge.yes { background: #0d2a1a; color: var(--green); }
-.badge.no  { background: #2a1010; color: var(--red); }
-.badge.pending { background: #2a2010; color: var(--amber); }
-.badge.na  { background: #1a1f2e; color: var(--muted); }
+.badge.yes { background: var(--green); color: #fff; }
+.badge.no  { background: var(--red); color: #fff; }
+.badge.pending { background: var(--amber); color: #fff; }
+.badge.na  { background: var(--border); color: var(--muted); }
 
 /* ── SECTION LABEL ── */
 .section-hdr {
@@ -190,8 +190,8 @@ td.bad  { color: var(--red); }
 .chip-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
 .chip {
   font-size: 11px; padding: 3px 10px; border-radius: 20px;
-  background: #2a1a10; color: var(--amber); border: 1px solid #4a3020;
-  font-family: 'DM Mono', monospace;
+  background: var(--amber); color: #fff; border: none;
+  font-family: 'DM Mono', monospace; font-weight: 600;
 }
 
 /* ── BAR ROW ── */
@@ -672,8 +672,8 @@ function renderWeekly(){
     data:{
       labels: weeks12,
       datasets:[
-        { label:'Premium', data: weeks12.map(w=>{ const r=allWeeks.find(x=>x.week_start===w&&x.team==='Premium Support'&&!x.supervisor); return r?n(r.avg_score_pct):null; }), borderColor:'var(--premium)', backgroundColor:'#4f8ef722', tension:.3, fill:true, pointRadius:3, spanGaps:true },
-        { label:'Standard', data: weeks12.map(w=>{ const r=allWeeks.find(x=>x.week_start===w&&x.team==='Standard Support'&&!x.supervisor); return r?n(r.avg_score_pct):null; }), borderColor:'var(--partner)', backgroundColor:'#a78bfa22', tension:.3, fill:true, pointRadius:3, spanGaps:true }
+        { label:'Premium', data: weeks12.map(w=>{ const r=allWeeks.find(x=>x.week_start===w&&x.team==='Premium Support'&&!x.supervisor); return r?n(r.avg_score_pct):null; }), borderColor:cssVar('--premium'), backgroundColor:cssVar('--premium')+'33', tension:.3, fill:true, pointRadius:3, spanGaps:true },
+        { label:'Standard', data: weeks12.map(w=>{ const r=allWeeks.find(x=>x.week_start===w&&x.team==='Standard Support'&&!x.supervisor); return r?n(r.avg_score_pct):null; }), borderColor:cssVar('--partner'), backgroundColor:cssVar('--partner')+'33', tension:.3, fill:true, pointRadius:3, spanGaps:true }
       ]
     },
     options:{ scales:{ x:{ticks:{color:cssVar('--muted'),font:{size:10}},grid:{color:cssVar('--border')}}, y:{ticks:{color:cssVar('--muted')},grid:{color:cssVar('--border')},beginAtZero:false,min:50,max:100} }, plugins:{legend:{labels:{color:cssVar('--text'),font:{size:11}}}} }
@@ -685,7 +685,7 @@ function renderWeekly(){
     type:'bar',
     data:{
       labels:['Premium Support','Standard Support'],
-      datasets:[{ label:'Evaluations', data:[n(premRow.manual_eval_count,0),n(partRow.manual_eval_count,0)], backgroundColor:['var(--premium)','var(--partner)'], borderRadius:5 }]
+      datasets:[{ label:'Evaluations', data:[n(premRow.manual_eval_count,0),n(partRow.manual_eval_count,0)], backgroundColor:[cssVar('--premium'),cssVar('--partner')], borderRadius:5 }]
     },
     options:{ plugins:{legend:{display:false}}, scales:{ x:{ticks:{color:cssVar('--muted')},grid:{display:false}}, y:{ticks:{color:cssVar('--muted')},grid:{color:cssVar('--border')},beginAtZero:true} } }
   });
@@ -697,7 +697,7 @@ function renderWeekly(){
     type:'bar',
     data:{
       labels: agentList.map(a=>a.nm.split(' ')[0]),
-      datasets:[{ label:'Score %', data:agentList.map(a=>a.score), backgroundColor: agentList.map(a=>a.score>=85?'var(--green)':a.score>=75?'var(--blue)':'var(--red)'), borderRadius:4 }]
+      datasets:[{ label:'Score %', data:agentList.map(a=>a.score), backgroundColor: agentList.map(a=>a.score>=85?cssVar('--green'):a.score>=75?cssVar('--blue'):cssVar('--red')), borderRadius:4 }]
     },
     options:{ plugins:{legend:{display:false}}, scales:{ x:{ticks:{color:cssVar('--muted'),font:{size:9}},grid:{display:false}}, y:{ticks:{color:cssVar('--muted')},grid:{color:cssVar('--border')},min:50,max:100} } }
   });
@@ -741,8 +741,8 @@ function renderMonthly(){
     data:{
       labels: months6,
       datasets:[
-        { label:'Premium', data:months6.map(m=>{ const r=RAW.monthly.find(x=>x.month===m&&x.team==='Premium Support'); return r?n(r.avg_score_pct):null; }), borderColor:'var(--premium)', backgroundColor:'#4f8ef722', tension:.3, fill:true, pointRadius:4, spanGaps:true },
-        { label:'Standard', data:months6.map(m=>{ const r=RAW.monthly.find(x=>x.month===m&&x.team==='Standard Support'); return r?n(r.avg_score_pct):null; }), borderColor:'var(--partner)', backgroundColor:'#a78bfa22', tension:.3, fill:true, pointRadius:4, spanGaps:true }
+        { label:'Premium', data:months6.map(m=>{ const r=RAW.monthly.find(x=>x.month===m&&x.team==='Premium Support'); return r?n(r.avg_score_pct):null; }), borderColor:cssVar('--premium'), backgroundColor:cssVar('--premium')+'33', tension:.3, fill:true, pointRadius:4, spanGaps:true },
+        { label:'Standard', data:months6.map(m=>{ const r=RAW.monthly.find(x=>x.month===m&&x.team==='Standard Support'); return r?n(r.avg_score_pct):null; }), borderColor:cssVar('--partner'), backgroundColor:cssVar('--partner')+'33', tension:.3, fill:true, pointRadius:4, spanGaps:true }
       ]
     },
     options:{ scales:{ x:{ticks:{color:cssVar('--muted'),font:{size:10}},grid:{color:cssVar('--border')}}, y:{ticks:{color:cssVar('--muted')},grid:{color:cssVar('--border')},min:50,max:100} }, plugins:{legend:{labels:{color:cssVar('--text'),font:{size:11}}}} }
@@ -853,7 +853,7 @@ function renderFailedQ(){
   destroyChart('fqAgent');
   charts.fqAgent=new Chart(document.getElementById('fqAgentChart'),{
     type:'bar',
-    data:{ labels:agList.map(a=>a[0].split(' ')[0]), datasets:[{ label:'Fails', data:agList.map(a=>a[1]), backgroundColor:'var(--red)', borderRadius:4 }] },
+    data:{ labels:agList.map(a=>a[0].split(' ')[0]), datasets:[{ label:'Fails', data:agList.map(a=>a[1]), backgroundColor:cssVar('--red'), borderRadius:4 }] },
     options:{ indexAxis:'y', plugins:{legend:{display:false}}, scales:{ x:{ticks:{color:cssVar('--muted')},grid:{color:cssVar('--border')},beginAtZero:true}, y:{ticks:{color:cssVar('--muted'),font:{size:11}},grid:{display:false}} } }
   });
 
@@ -890,8 +890,8 @@ function renderSections(){
       options:{ indexAxis:'y', plugins:{legend:{display:false}}, scales:{ x:{ticks:{color:cssVar('--muted')},grid:{color:cssVar('--border')},min:0,max:100}, y:{ticks:{color:cssVar('--muted')},grid:{display:false}} } }
     });
   }
-  sectionChart('secPremiumChart',prem,'var(--premium)');
-  sectionChart('secPartnerChart',part,'var(--partner)'); // Standard Support
+  sectionChart('secPremiumChart',prem,cssVar('--premium'));
+  sectionChart('secPartnerChart',part,cssVar('--partner')); // Standard Support
 
   document.getElementById('secBody').innerHTML=rows.sort((a,b)=>b.avg_score_pct-a.avg_score_pct).map(r=>`
     <tr>
