@@ -1,0 +1,856 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>QA Dashboard — Property Finder</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root {
+  --bg:       #0e1117;
+  --surface:  #161b25;
+  --surface2: #1d2535;
+  --border:   #252f42;
+  --text:     #e2e8f4;
+  --muted:    #6b7a99;
+  --blue:     #4f8ef7;
+  --green:    #34d17a;
+  --amber:    #f5a623;
+  --red:      #ef5b5b;
+  --purple:   #a78bfa;
+  --teal:     #2dd4bf;
+  --premium:  #4f8ef7;
+  --partner:  #a78bfa;
+}
+*, *::before, *::after { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--text);
+  font-family: 'DM Sans', sans-serif; font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+}
+a { color: inherit; text-decoration: none; }
+
+/* ── LAYOUT ── */
+.shell { display: flex; min-height: 100vh; }
+.sidebar {
+  width: 220px; flex-shrink: 0; background: var(--surface);
+  border-right: 1px solid var(--border); padding: 24px 0;
+  position: sticky; top: 0; height: 100vh; overflow-y: auto;
+}
+.main { flex: 1; min-width: 0; padding: 28px 32px 80px; }
+
+/* ── SIDEBAR ── */
+.logo {
+  padding: 0 20px 20px; border-bottom: 1px solid var(--border);
+  font-weight: 700; font-size: 15px; letter-spacing: -0.02em;
+}
+.logo span { color: var(--blue); }
+.nav-section {
+  padding: 16px 20px 8px; font-size: 10px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: .1em; color: var(--muted);
+}
+.nav-item {
+  display: block; padding: 8px 20px; cursor: pointer;
+  color: var(--muted); font-size: 13px; transition: all .15s;
+  border-left: 2px solid transparent;
+}
+.nav-item:hover { color: var(--text); background: var(--surface2); }
+.nav-item.active { color: var(--blue); border-left-color: var(--blue); background: var(--surface2); }
+.status-dot {
+  display: inline-block; width: 6px; height: 6px; border-radius: 50%;
+  background: var(--green); margin-right: 7px; vertical-align: middle;
+}
+.status-dot.loading { background: var(--amber); }
+.status-dot.error   { background: var(--red); }
+
+/* ── TOP BAR ── */
+.topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: 14px; margin-bottom: 24px;
+  padding-bottom: 20px; border-bottom: 1px solid var(--border);
+}
+.page-title { font-size: 22px; font-weight: 700; letter-spacing: -0.03em; margin: 0; }
+.page-sub   { font-size: 12px; color: var(--muted); margin-top: 3px; }
+.status-bar {
+  font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted);
+  display: flex; align-items: center; gap: 6px;
+}
+.btn {
+  background: var(--blue); color: #0a0f1e; border: none; padding: 8px 14px;
+  border-radius: 7px; font-weight: 600; font-size: 12px; cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
+}
+.btn:hover { filter: brightness(1.1); }
+.btn.ghost { background: transparent; border: 1px solid var(--border); color: var(--text); }
+
+/* ── FILTERS ── */
+.filters {
+  display: flex; gap: 10px; flex-wrap: wrap; align-items: center;
+  margin-bottom: 24px;
+}
+select, input[type=date] {
+  background: var(--surface); border: 1px solid var(--border); color: var(--text);
+  padding: 7px 10px; border-radius: 7px; font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+}
+label.lbl {
+  font-size: 11px; color: var(--muted); text-transform: uppercase;
+  letter-spacing: .06em; margin-right: 5px;
+}
+
+/* ── KPI GRID ── */
+.kpi-row { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; margin-bottom: 20px; }
+@media(max-width:1100px){ .kpi-row { grid-template-columns: repeat(2,1fr); } }
+.kpi {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px; padding: 16px 18px;
+}
+.kpi .lbl2 { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .07em; margin-bottom: 8px; }
+.kpi .val  { font-family: 'DM Mono', monospace; font-size: 28px; font-weight: 500; line-height: 1; }
+.kpi .sub2 { font-size: 11px; color: var(--muted); margin-top: 5px; }
+.kpi.premium { border-top: 2px solid var(--premium); }
+.kpi.partner { border-top: 2px solid var(--partner); }
+.kpi.warn    { border-top: 2px solid var(--amber); }
+.kpi.good    { border-top: 2px solid var(--green); }
+
+/* ── PANELS ── */
+.grid2 { display: grid; grid-template-columns: 1.3fr 1fr; gap: 16px; margin-bottom: 16px; }
+.grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+.grid2e{ display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+@media(max-width:960px){ .grid2,.grid3,.grid2e { grid-template-columns: 1fr; } }
+.panel {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px; padding: 18px 20px;
+}
+.panel h3 {
+  font-size: 13px; font-weight: 600; margin: 0 0 3px;
+  letter-spacing: -0.01em;
+}
+.panel .cap { font-size: 11px; color: var(--muted); margin-bottom: 14px; }
+canvas { max-height: 260px; }
+
+/* ── TABLE ── */
+table { width: 100%; border-collapse: collapse; font-size: 12px; }
+th {
+  text-align: left; color: var(--muted); font-size: 10px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: .05em;
+  padding: 5px 8px; border-bottom: 1px solid var(--border);
+}
+td { padding: 7px 8px; border-bottom: 1px solid #1a2030; font-variant-numeric: tabular-nums; }
+tr:last-child td { border-bottom: none; }
+td.num, th.num { text-align: right; font-family: 'DM Mono', monospace; }
+td.good { color: var(--green); }
+td.warn { color: var(--amber); }
+td.bad  { color: var(--red); }
+.badge {
+  display: inline-block; font-size: 10px; padding: 2px 7px; border-radius: 20px;
+  font-family: 'DM Mono', monospace;
+}
+.badge.yes { background: #0d2a1a; color: var(--green); }
+.badge.no  { background: #2a1010; color: var(--red); }
+.badge.pending { background: #2a2010; color: var(--amber); }
+.badge.na  { background: #1a1f2e; color: var(--muted); }
+
+/* ── SECTION LABEL ── */
+.section-hdr {
+  font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .1em;
+  color: var(--muted); margin: 28px 0 12px; display: flex; align-items: center; gap: 10px;
+}
+.section-hdr::after { content:''; flex:1; height:1px; background:var(--border); }
+
+/* ── VIEWS ── */
+.view { display: none; }
+.view.active { display: block; }
+
+/* ── OUTLIER CHIPS ── */
+.chip-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.chip {
+  font-size: 11px; padding: 3px 10px; border-radius: 20px;
+  background: #2a1a10; color: var(--amber); border: 1px solid #4a3020;
+  font-family: 'DM Mono', monospace;
+}
+
+/* ── BAR ROW ── */
+.bar-row { display: flex; align-items: center; gap: 8px; }
+.bar-track { flex:1; height:5px; background:#1e2535; border-radius:3px; overflow:hidden; }
+.bar-fill { height:100%; border-radius:3px; }
+
+.err-box {
+  background: #2a1010; border: 1px solid #5a2020; color: #f5b8b8;
+  padding: 14px 18px; border-radius: 8px; font-size: 13px; margin-bottom: 20px;
+}
+.footer { font-size: 11px; color: var(--muted); margin-top: 32px; }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- SIDEBAR -->
+  <nav class="sidebar">
+    <div class="logo">QA <span>Monitor</span></div>
+    <div class="nav-section">Reports</div>
+    <a class="nav-item active" onclick="showView('weekly')" id="nav-weekly">Weekly Report</a>
+    <a class="nav-item" onclick="showView('monthly')" id="nav-monthly">Monthly Report</a>
+    <div class="nav-section">Detail</div>
+    <a class="nav-item" onclick="showView('disputes')" id="nav-disputes">Disputes & SLA</a>
+    <a class="nav-item" onclick="showView('questions')" id="nav-questions">Failed Questions</a>
+    <a class="nav-item" onclick="showView('sections')" id="nav-sections">Section Scores</a>
+    <div class="nav-section" style="margin-top:auto">Sync</div>
+    <div style="padding:10px 20px">
+      <div class="status-bar">
+        <span class="status-dot loading" id="dot"></span>
+        <span id="statusTxt">loading…</span>
+      </div>
+      <div style="margin-top:6px;font-size:11px;color:var(--muted)" id="countdownTxt"></div>
+      <button class="btn ghost" style="margin-top:10px;width:100%;font-size:11px" onclick="refreshNow()">↻ Refresh</button>
+    </div>
+  </nav>
+
+  <!-- MAIN -->
+  <main class="main">
+    <div id="errorArea"></div>
+
+    <!-- ═══ WEEKLY VIEW ═══ -->
+    <div class="view active" id="view-weekly">
+      <div class="topbar">
+        <div>
+          <h1 class="page-title">Weekly Report</h1>
+          <div class="page-sub">Manual evaluations · event date · Mon–Sun weeks</div>
+        </div>
+      </div>
+
+      <div class="filters">
+        <span><label class="lbl">Week</label><select id="weekSelect"></select></span>
+        <span><label class="lbl">Team</label>
+          <select id="weekTeam">
+            <option value="ALL">All teams</option>
+            <option value="Premium Support">Premium Support</option>
+            <option value="Partner Support">Partner Support</option>
+          </select>
+        </span>
+        <button class="btn" onclick="renderWeekly()">Apply</button>
+      </div>
+
+      <div class="kpi-row" id="wKpis"></div>
+
+      <div class="grid2">
+        <div class="panel">
+          <h3>Score trend by team</h3>
+          <div class="cap">Avg QA score % across last 12 weeks</div>
+          <canvas id="weekTrendChart"></canvas>
+        </div>
+        <div class="panel">
+          <h3>Lowest scoring agents this week</h3>
+          <div class="cap">Bottom 3 per team — agents dragging the average down</div>
+          <table>
+            <thead><tr><th>Agent</th><th>Team</th><th>TL</th><th class="num">Score</th></tr></thead>
+            <tbody id="lowestAgentBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="grid2e">
+        <div class="panel">
+          <h3>Eval count by team</h3>
+          <div class="cap">Manual evaluations in selected week</div>
+          <canvas id="weekEvalChart"></canvas>
+        </div>
+        <div class="panel">
+          <h3>Score distribution</h3>
+          <div class="cap">All agents in selected week — score spread</div>
+          <canvas id="weekScoreDistChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ MONTHLY VIEW ═══ -->
+    <div class="view" id="view-monthly">
+      <div class="topbar">
+        <div>
+          <h1 class="page-title">Monthly Report</h1>
+          <div class="page-sub">Full month metrics · evaluations, scores, outliers, disputes</div>
+        </div>
+      </div>
+
+      <div class="filters">
+        <span><label class="lbl">Month</label><select id="monthSelect"></select></span>
+        <span><label class="lbl">Team</label>
+          <select id="monthTeam">
+            <option value="ALL">All teams</option>
+            <option value="Premium Support">Premium Support</option>
+            <option value="Partner Support">Partner Support</option>
+          </select>
+        </span>
+        <button class="btn" onclick="renderMonthly()">Apply</button>
+      </div>
+
+      <div class="kpi-row" id="mKpis"></div>
+
+      <div class="section-hdr">Outliers <span style="color:var(--amber);font-size:11px;text-transform:none;letter-spacing:0">≥5% below team 6-month avg</span></div>
+      <div class="panel" style="margin-bottom:16px">
+        <div class="cap">Agents requiring attention this month</div>
+        <div id="outlierChips" class="chip-list"></div>
+      </div>
+
+      <div class="grid2">
+        <div class="panel">
+          <h3>Score trend — last 6 months</h3>
+          <div class="cap">Avg QA % by team</div>
+          <canvas id="monthTrendChart"></canvas>
+        </div>
+        <div class="panel">
+          <h3>Lowest scoring agents</h3>
+          <div class="cap">Bottom 3 per team this month</div>
+          <table>
+            <thead><tr><th>Agent</th><th>Team</th><th>TL</th><th class="num">Score</th></tr></thead>
+            <tbody id="mLowestBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="section-hdr">Disputes & SLA</div>
+      <div class="kpi-row" id="mDisputeKpis"></div>
+    </div>
+
+    <!-- ═══ DISPUTES VIEW ═══ -->
+    <div class="view" id="view-disputes">
+      <div class="topbar">
+        <div>
+          <h1 class="page-title">Disputes & SLA</h1>
+          <div class="page-sub">TL SLA: 48h · Omar SLA: 48h · TL rejected → Omar not involved</div>
+        </div>
+      </div>
+
+      <div class="filters">
+        <span><label class="lbl">Team</label>
+          <select id="dispTeam">
+            <option value="ALL">All teams</option>
+            <option value="Premium Support">Premium Support</option>
+            <option value="Partner Support">Partner Support</option>
+          </select>
+        </span>
+        <span><label class="lbl">Status</label>
+          <select id="dispStatus">
+            <option value="ALL">All</option>
+            <option value="open">Open</option>
+            <option value="solved">Solved</option>
+          </select>
+        </span>
+        <button class="btn" onclick="renderDisputes()">Apply</button>
+      </div>
+
+      <div class="kpi-row" id="dispKpis"></div>
+
+      <div class="panel" style="margin-top:16px">
+        <h3>All dispute tickets</h3>
+        <div class="cap">Sorted by submission date — newest first</div>
+        <table>
+          <thead>
+            <tr>
+              <th>Ticket</th><th>Agent</th><th>Team</th>
+              <th class="num">TL Hours</th><th>TL SLA</th><th>TL Decision</th>
+              <th class="num">Omar Hours</th><th>Omar SLA</th><th>Omar Decision</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="dispBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ═══ FAILED QUESTIONS VIEW ═══ -->
+    <div class="view" id="view-questions">
+      <div class="topbar">
+        <div>
+          <h1 class="page-title">Failed Questions</h1>
+          <div class="page-sub">Monthly fail counts per agent · week-over-week breakdown</div>
+        </div>
+      </div>
+
+      <div class="filters">
+        <span><label class="lbl">Month</label><select id="fqMonth"></select></span>
+        <span><label class="lbl">Team</label>
+          <select id="fqTeam">
+            <option value="ALL">All teams</option>
+            <option value="Premium Support">Premium Support</option>
+            <option value="Partner Support">Partner Support</option>
+          </select>
+        </span>
+        <button class="btn" onclick="renderFailedQ()">Apply</button>
+      </div>
+
+      <div class="grid2e">
+        <div class="panel">
+          <h3>Top failed questions — monthly totals</h3>
+          <div class="cap">Ranked by total failures across all agents</div>
+          <table>
+            <thead><tr><th>Question</th><th>Section</th><th class="num">Fails</th></tr></thead>
+            <tbody id="fqTopBody"></tbody>
+          </table>
+        </div>
+        <div class="panel">
+          <h3>Fails per agent</h3>
+          <div class="cap">Total question failures this month</div>
+          <canvas id="fqAgentChart"></canvas>
+        </div>
+      </div>
+
+      <div class="panel" style="margin-top:16px">
+        <h3>Week-over-week breakdown</h3>
+        <div class="cap">Agent × question fail counts by week</div>
+        <table>
+          <thead><tr><th>Week</th><th>Agent</th><th>Team</th><th>Question</th><th>Section</th><th class="num">Fails</th></tr></thead>
+          <tbody id="fqWowBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ═══ SECTIONS VIEW ═══ -->
+    <div class="view" id="view-sections">
+      <div class="topbar">
+        <div>
+          <h1 class="page-title">Section Scores</h1>
+          <div class="page-sub">QA score breakdown by scorecard section</div>
+        </div>
+      </div>
+
+      <div class="filters">
+        <span><label class="lbl">Month</label><select id="secMonth"></select></span>
+        <button class="btn" onclick="renderSections()">Apply</button>
+      </div>
+
+      <div class="grid2e">
+        <div class="panel">
+          <h3>Avg score by section — Premium Support</h3>
+          <canvas id="secPremiumChart"></canvas>
+        </div>
+        <div class="panel">
+          <h3>Avg score by section — Partner Support</h3>
+          <canvas id="secPartnerChart"></canvas>
+        </div>
+      </div>
+
+      <div class="panel" style="margin-top:16px">
+        <h3>Section score table</h3>
+        <table>
+          <thead><tr><th>Section</th><th>Team</th><th class="num">Avg Score</th><th class="num">Eval Count</th></tr></thead>
+          <tbody id="secBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="footer" id="footerNote"></div>
+  </main>
+</div>
+
+<script>
+const SHEET_ID = "1RMaHdOG6FTd-d74UwCAW35nXFpEd99q5q_LG-G8B_fA";
+const TABS = ["weekly_report","monthly_report","disputes","failed_questions","section_scores"];
+
+let RAW = { weekly:[], monthly:[], disputes:[], failedQ:[], sections:[] };
+let charts = {};
+
+// ── FETCH ──────────────────────────────────────────────────────────────
+function fetchTab(tabName){
+  return new Promise((resolve,reject)=>{
+    const cb = 'cb_' + tabName.replace(/[^a-z0-9]/gi,'') + '_' + Date.now();
+    const cleanup = ()=>{ delete window[cb]; const s=document.getElementById(cb); if(s)s.remove(); };
+    const t = setTimeout(()=>{ cleanup(); reject(new Error('Timeout: '+tabName)); }, 18000);
+    window[cb] = function(res){
+      clearTimeout(t); cleanup();
+      if(!res||!res.table){ reject(new Error('No data: '+tabName)); return; }
+      const cols = res.table.cols.map(c=>String(c.label||c.id||'').trim());
+      const rows = (res.table.rows||[]).map(r=>{
+        const obj={};
+        cols.forEach((col,i)=>{
+          if(!col)return;
+          const cell=r.c&&r.c[i];
+          if(!cell){obj[col]='';return;}
+          obj[col]=(cell.f!==undefined&&cell.f!==null&&cell.f!=='')?cell.f:
+                   (cell.v!==null&&cell.v!==undefined?cell.v:'');
+        });
+        return obj;
+      });
+      resolve(rows);
+    };
+    const s=document.createElement('script');
+    s.id=cb;
+    s.src='https://docs.google.com/spreadsheets/d/'+SHEET_ID+'/gviz/tq?sheet='+encodeURIComponent(tabName)+'&headers=1&tqx=out:json;responseHandler:'+cb;
+    s.onerror=()=>{ clearTimeout(t); cleanup(); reject(new Error('Load error: '+tabName)); };
+    document.body.appendChild(s);
+  });
+}
+
+// ── AUTO REFRESH ───────────────────────────────────────────────────────
+const INTERVAL = 5*60*1000;
+let nextAt=null, cTimer=null, rTimer=null;
+
+function scheduleRefresh(){
+  clearTimeout(rTimer); clearInterval(cTimer);
+  nextAt = Date.now()+INTERVAL;
+  cTimer = setInterval(()=>{
+    const rem = Math.max(0,Math.ceil((nextAt-Date.now())/1000));
+    const m=Math.floor(rem/60), s=String(rem%60).padStart(2,'0');
+    document.getElementById('countdownTxt').textContent='Next refresh in '+m+':'+s;
+    if(!rem) clearInterval(cTimer);
+  },1000);
+  rTimer = setTimeout(loadAll, INTERVAL);
+}
+
+function refreshNow(){
+  clearTimeout(rTimer); clearInterval(cTimer);
+  document.getElementById('countdownTxt').textContent='';
+  loadAll();
+}
+
+async function loadAll(){
+  setStatus('loading','loading…');
+  document.getElementById('errorArea').innerHTML='';
+  try{
+    const [w,m,d,fq,s] = await Promise.all(TABS.map(t=>fetchTab(t)));
+    RAW.weekly=w; RAW.monthly=m; RAW.disputes=d; RAW.failedQ=fq; RAW.sections=s;
+    populateSelects();
+    renderWeekly();
+    renderMonthly();
+    renderDisputes();
+    renderFailedQ();
+    renderSections();
+    setStatus('ok','live · '+new Date().toLocaleTimeString());
+    scheduleRefresh();
+  }catch(e){
+    setStatus('error','load failed');
+    document.getElementById('errorArea').innerHTML=
+      '<div class="err-box">Could not load data: '+e.message+'<br>Open this file directly in your browser (not via Claude preview).</div>';
+    scheduleRefresh();
+  }
+}
+
+function setStatus(state,txt){
+  const d=document.getElementById('dot');
+  d.className='status-dot'+(state==='ok'?'':state==='loading'?' loading':' error');
+  document.getElementById('statusTxt').textContent=txt;
+}
+
+// ── SELECTS ────────────────────────────────────────────────────────────
+function populateSelects(){
+  const weeks = [...new Set(RAW.weekly.map(r=>r.week_start))].sort().reverse();
+  const months = [...new Set(RAW.monthly.map(r=>r.month))];
+
+  ['weekSelect'].forEach(id=>{
+    const el=document.getElementById(id);
+    el.innerHTML=weeks.map(w=>`<option value="${w}">${w}</option>`).join('');
+  });
+  ['monthSelect','fqMonth','secMonth'].forEach(id=>{
+    const el=document.getElementById(id);
+    el.innerHTML=months.map(m=>`<option value="${m}">${m}</option>`).join('');
+  });
+}
+
+// ── NAVIGATION ─────────────────────────────────────────────────────────
+function showView(v){
+  document.querySelectorAll('.view').forEach(el=>el.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(el=>el.classList.remove('active'));
+  document.getElementById('view-'+v).classList.add('active');
+  document.getElementById('nav-'+v).classList.add('active');
+}
+
+// ── HELPERS ────────────────────────────────────────────────────────────
+function n(v,dec=1){ const f=parseFloat(v); return isNaN(f)?0:+f.toFixed(dec); }
+function esc(s){ return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function badge(v){
+  if(!v||v===''||v==='pending') return `<span class="badge pending">pending</span>`;
+  if(v==='yes') return `<span class="badge yes">✓ yes</span>`;
+  if(v==='no')  return `<span class="badge no">✗ no</span>`;
+  if(String(v).startsWith('n/a')) return `<span class="badge na">n/a</span>`;
+  return `<span class="badge na">${esc(v)}</span>`;
+}
+function scoreColor(s){ return s>=85?'good':s>=75?'':'bad'; }
+function kpiCard(label,val,sub,accent){
+  return `<div class="kpi ${accent||''}">
+    <div class="lbl2">${label}</div>
+    <div class="val">${val}</div>
+    ${sub?`<div class="sub2">${sub}</div>`:''}
+  </div>`;
+}
+function destroyChart(id){ if(charts[id]){ charts[id].destroy(); delete charts[id]; } }
+
+// ── WEEKLY ─────────────────────────────────────────────────────────────
+function renderWeekly(){
+  const week = document.getElementById('weekSelect').value;
+  const team = document.getElementById('weekTeam').value;
+
+  const allWeeks = RAW.weekly;
+  const weekRows = allWeeks.filter(r=>r.week_start===week && (team==='ALL'?!r.supervisor:r.team===team&&!r.supervisor));
+  const row = weekRows[0] || {};
+
+  // KPIs
+  const premRow = allWeeks.find(r=>r.week_start===week&&r.team==='Premium Support'&&!r.supervisor)||{};
+  const partRow = allWeeks.find(r=>r.week_start===week&&r.team==='Partner Support'&&!r.supervisor)||{};
+  const allRow  = allWeeks.find(r=>r.week_start===week&&r.team==='ALL')||{};
+
+  document.getElementById('wKpis').innerHTML = [
+    kpiCard('Manual Evals — Premium', n(premRow.manual_eval_count,0), 'this week','premium'),
+    kpiCard('Avg Score — Premium', n(premRow.avg_score_pct)+'%', '','premium'),
+    kpiCard('Manual Evals — Partner', n(partRow.manual_eval_count,0), 'this week','partner'),
+    kpiCard('Avg Score — Partner', n(partRow.avg_score_pct)+'%', '','partner'),
+  ].join('');
+
+  // Lowest agents table
+  const src = team==='ALL'
+    ? allWeeks.filter(r=>r.week_start===week&&r.supervisor&&r.supervisor!=='ALL')
+    : allWeeks.filter(r=>r.week_start===week&&r.team===team&&r.supervisor&&r.supervisor!=='ALL');
+
+  const agentScores = {};
+  src.forEach(r=>{
+    for(let i=1;i<=3;i++){
+      const nm=r['lowest_agent_'+i], sc=r['lowest_score_'+i];
+      if(nm&&sc){ agentScores[nm]={ score:n(sc), team:r.team, sup:r.supervisor }; }
+    }
+  });
+  const sorted = Object.entries(agentScores).sort((a,b)=>a[1].score-b[1].score);
+  document.getElementById('lowestAgentBody').innerHTML = sorted.slice(0,8).map(([nm,v])=>`
+    <tr>
+      <td>${esc(nm)}</td>
+      <td><span style="color:${v.team==='Premium Support'?'var(--premium)':'var(--partner)'}">●</span> ${esc(v.team.replace(' Support',''))}</td>
+      <td>${esc(v.sup)}</td>
+      <td class="num ${scoreColor(v.score)}">${v.score}%</td>
+    </tr>`).join('') || '<tr><td colspan="4" style="color:var(--muted)">No data</td></tr>';
+
+  // Trend chart
+  const weeks12 = [...new Set(allWeeks.map(r=>r.week_start))].sort().slice(-12);
+  destroyChart('weekTrend');
+  charts.weekTrend = new Chart(document.getElementById('weekTrendChart'),{
+    type:'line',
+    data:{
+      labels: weeks12,
+      datasets:[
+        { label:'Premium', data: weeks12.map(w=>{ const r=allWeeks.find(x=>x.week_start===w&&x.team==='Premium Support'&&!x.supervisor); return r?n(r.avg_score_pct):null; }), borderColor:'var(--premium)', backgroundColor:'#4f8ef722', tension:.3, fill:true, pointRadius:3, spanGaps:true },
+        { label:'Partner', data: weeks12.map(w=>{ const r=allWeeks.find(x=>x.week_start===w&&x.team==='Partner Support'&&!x.supervisor); return r?n(r.avg_score_pct):null; }), borderColor:'var(--partner)', backgroundColor:'#a78bfa22', tension:.3, fill:true, pointRadius:3, spanGaps:true }
+      ]
+    },
+    options:{ scales:{ x:{ticks:{color:'#6b7a99',font:{size:10}},grid:{color:'#1d2535'}}, y:{ticks:{color:'#6b7a99'},grid:{color:'#1d2535'},beginAtZero:false,min:50,max:100} }, plugins:{legend:{labels:{color:'#e2e8f4',font:{size:11}}}} }
+  });
+
+  // Eval bar chart
+  destroyChart('weekEval');
+  charts.weekEval = new Chart(document.getElementById('weekEvalChart'),{
+    type:'bar',
+    data:{
+      labels:['Premium Support','Partner Support'],
+      datasets:[{ label:'Evaluations', data:[n(premRow.manual_eval_count,0),n(partRow.manual_eval_count,0)], backgroundColor:['var(--premium)','var(--partner)'], borderRadius:5 }]
+    },
+    options:{ plugins:{legend:{display:false}}, scales:{ x:{ticks:{color:'#6b7a99'},grid:{display:false}}, y:{ticks:{color:'#6b7a99'},grid:{color:'#1d2535'},beginAtZero:true} } }
+  });
+
+  // Score dist — use all supervisor rows to get per-agent scores
+  const agentList = Object.entries(agentScores).map(([nm,v])=>({nm,score:v.score})).sort((a,b)=>a.score-b.score);
+  destroyChart('weekDist');
+  charts.weekDist = new Chart(document.getElementById('weekScoreDistChart'),{
+    type:'bar',
+    data:{
+      labels: agentList.map(a=>a.nm.split(' ')[0]),
+      datasets:[{ label:'Score %', data:agentList.map(a=>a.score), backgroundColor: agentList.map(a=>a.score>=85?'var(--green)':a.score>=75?'var(--blue)':'var(--red)'), borderRadius:4 }]
+    },
+    options:{ plugins:{legend:{display:false}}, scales:{ x:{ticks:{color:'#6b7a99',font:{size:9}},grid:{display:false}}, y:{ticks:{color:'#6b7a99'},grid:{color:'#1d2535'},min:50,max:100} } }
+  });
+
+  document.getElementById('footerNote').textContent = 'Week: '+week+' → '+(allWeeks.find(r=>r.week_start===week)||{}).week_end+' · Last loaded '+new Date().toLocaleString();
+}
+
+// ── MONTHLY ────────────────────────────────────────────────────────────
+function renderMonthly(){
+  const month = document.getElementById('monthSelect').value;
+  const team  = document.getElementById('monthTeam').value;
+
+  const premRow = RAW.monthly.find(r=>r.month===month&&r.team==='Premium Support')||{};
+  const partRow = RAW.monthly.find(r=>r.month===month&&r.team==='Partner Support')||{};
+  const rows    = team==='ALL'?[premRow,partRow]:[RAW.monthly.find(r=>r.month===month&&r.team===team)||{}];
+
+  const totalEvals = (n(premRow.manual_eval_count,0)+n(partRow.manual_eval_count,0));
+  const avgScore   = team==='ALL'
+    ? ((n(premRow.avg_score_pct)*n(premRow.manual_eval_count,0)+n(partRow.avg_score_pct)*n(partRow.manual_eval_count,0))/(totalEvals||1))
+    : n((RAW.monthly.find(r=>r.month===month&&r.team===team)||{}).avg_score_pct);
+
+  document.getElementById('mKpis').innerHTML = [
+    kpiCard('Manual Evals', totalEvals.toLocaleString(), month),
+    kpiCard('Avg QA Score', n(avgScore,1)+'%', 'across both teams', avgScore>=85?'good':avgScore<75?'warn':''),
+    kpiCard('Premium Avg', n(premRow.avg_score_pct)+'%', n(premRow.manual_eval_count,0)+' evals','premium'),
+    kpiCard('Partner Avg', n(partRow.avg_score_pct)+'%', n(partRow.manual_eval_count,0)+' evals','partner'),
+  ].join('');
+
+  // Outliers
+  const outliers = [];
+  [premRow,partRow].forEach(r=>{ if(r.outlier_agents) outliers.push(...String(r.outlier_agents).split(',').map(s=>s.trim()).filter(Boolean)); });
+  document.getElementById('outlierChips').innerHTML = outliers.length
+    ? outliers.map(o=>`<span class="chip">${esc(o)}</span>`).join('')
+    : '<span style="color:var(--muted);font-size:12px">No outliers this month ✓</span>';
+
+  // Monthly trend chart
+  const months6 = [...new Set(RAW.monthly.map(r=>r.month))];
+  destroyChart('monthTrend');
+  charts.monthTrend = new Chart(document.getElementById('monthTrendChart'),{
+    type:'line',
+    data:{
+      labels: months6,
+      datasets:[
+        { label:'Premium', data:months6.map(m=>{ const r=RAW.monthly.find(x=>x.month===m&&x.team==='Premium Support'); return r?n(r.avg_score_pct):null; }), borderColor:'var(--premium)', backgroundColor:'#4f8ef722', tension:.3, fill:true, pointRadius:4, spanGaps:true },
+        { label:'Partner', data:months6.map(m=>{ const r=RAW.monthly.find(x=>x.month===m&&x.team==='Partner Support'); return r?n(r.avg_score_pct):null; }), borderColor:'var(--partner)', backgroundColor:'#a78bfa22', tension:.3, fill:true, pointRadius:4, spanGaps:true }
+      ]
+    },
+    options:{ scales:{ x:{ticks:{color:'#6b7a99',font:{size:10}},grid:{color:'#1d2535'}}, y:{ticks:{color:'#6b7a99'},grid:{color:'#1d2535'},min:50,max:100} }, plugins:{legend:{labels:{color:'#e2e8f4',font:{size:11}}}} }
+  });
+
+  // Lowest agents
+  const agentScores={};
+  [premRow,partRow].forEach(row=>{
+    for(let i=1;i<=3;i++){
+      const nm=row['lowest_agent_'+i], sc=row['lowest_score_'+i];
+      if(nm&&sc) agentScores[nm]={score:n(sc),team:row.team};
+    }
+  });
+  const sorted=Object.entries(agentScores).sort((a,b)=>a[1].score-b[1].score);
+  document.getElementById('mLowestBody').innerHTML=sorted.map(([nm,v])=>`
+    <tr>
+      <td>${esc(nm)}</td>
+      <td><span style="color:${v.team==='Premium Support'?'var(--premium)':'var(--partner)'}">●</span> ${esc(v.team.replace(' Support',''))}</td>
+      <td></td>
+      <td class="num ${scoreColor(v.score)}">${v.score}%</td>
+    </tr>`).join('')||'<tr><td colspan="4" style="color:var(--muted)">No data</td></tr>';
+
+  // Dispute KPIs
+  const dispKpis = [];
+  [premRow,partRow].forEach(r=>{
+    if(!r.month) return;
+    const label = r.team.replace(' Support','');
+    dispKpis.push(kpiCard('Disputes — '+label, n(r.disputes_total,0), n(r.disputes_pct_of_evals)+'% of evals'));
+    dispKpis.push(kpiCard('TL Avg Response', n(r.tl_avg_reply_hours)+'h', n(r.tl_sla_breach_count,0)+' breaches ('+n(r.tl_sla_breach_pct)+'%)', n(r.tl_avg_reply_hours)<=48?'good':'warn'));
+    dispKpis.push(kpiCard('Omar Avg Response', n(r.omar_avg_hours)+'h', n(r.omar_sla_breach_count,0)+' breaches ('+n(r.omar_sla_breach_pct)+'%)', n(r.omar_avg_hours)<=48?'good':'warn'));
+    dispKpis.push(kpiCard('Omar Decisions', n(r.omar_approved_pct)+'% approved', n(r.omar_rejected_pct)+'% rejected'));
+  });
+  document.getElementById('mDisputeKpis').innerHTML = dispKpis.join('');
+}
+
+// ── DISPUTES ───────────────────────────────────────────────────────────
+function renderDisputes(){
+  const team   = document.getElementById('dispTeam').value;
+  const status = document.getElementById('dispStatus').value;
+
+  let rows = RAW.disputes;
+  if(team!=='ALL')   rows=rows.filter(r=>r.team===team);
+  if(status!=='ALL') rows=rows.filter(r=>String(r.status||'').toLowerCase()===status);
+  rows = [...rows].sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
+
+  const total       = rows.length;
+  const tlBreaches  = rows.filter(r=>r.tl_within_sla==='no').length;
+  const omarRows    = rows.filter(r=>r.tl_decision==='approved');
+  const omarBreaches= omarRows.filter(r=>r.omar_within_sla==='no').length;
+  const approved    = omarRows.filter(r=>r.omar_decision==='approved').length;
+  const rejected    = omarRows.filter(r=>r.omar_decision==='rejected').length;
+
+  document.getElementById('dispKpis').innerHTML=[
+    kpiCard('Total Disputes', total, 'selected filters'),
+    kpiCard('TL SLA Breaches', tlBreaches, tlBreaches?'⚠ exceeded 48h':'✓ all within 48h', tlBreaches?'warn':'good'),
+    kpiCard('Omar SLA Breaches', omarBreaches, omarBreaches?'⚠ exceeded 48h':'✓ all within 48h', omarBreaches?'warn':'good'),
+    kpiCard('Outcomes (Omar)', approved+' approved / '+rejected+' rejected', omarRows.length+' reached Omar'),
+  ].join('');
+
+  document.getElementById('dispBody').innerHTML = rows.map(r=>`
+    <tr>
+      <td><a href="https://propertyfinderae.zendesk.com/agent/tickets/${esc(r.ticket_id)}" target="_blank" style="color:var(--blue)">#${esc(r.ticket_id)}</a></td>
+      <td>${esc(r.agent_name||r.agent_email||'—')}</td>
+      <td><span style="color:${r.team==='Premium Support'?'var(--premium)':'var(--partner)'}">●</span> ${esc((r.team||'').replace(' Support',''))}</td>
+      <td class="num ${r.tl_reply_hours>48?'bad':r.tl_reply_hours?'good':''}">${r.tl_reply_hours||'—'}</td>
+      <td>${badge(r.tl_within_sla)}</td>
+      <td><span style="text-transform:capitalize">${esc(r.tl_decision||'pending')}</span></td>
+      <td class="num ${r.omar_hours>48?'bad':r.omar_hours&&r.omar_hours!='n/a'?'good':''}">${r.omar_hours||'—'}</td>
+      <td>${badge(r.omar_within_sla)}</td>
+      <td><span style="text-transform:capitalize">${esc(r.omar_decision||'—')}</span></td>
+      <td><span style="text-transform:capitalize;color:var(--muted)">${esc(r.status||'')}</span></td>
+    </tr>`).join('')||'<tr><td colspan="10" style="color:var(--muted)">No disputes found</td></tr>';
+}
+
+// ── FAILED QUESTIONS ───────────────────────────────────────────────────
+function renderFailedQ(){
+  const month = document.getElementById('fqMonth').value;
+  const team  = document.getElementById('fqTeam').value;
+
+  let rows = RAW.failedQ.filter(r=>r.month===month&&(!r.week_start||r.week_start===''));
+  if(team!=='ALL') rows=rows.filter(r=>r.team===team);
+
+  // Top failed questions
+  const qMap={};
+  rows.forEach(r=>{
+    const k=r.question_name;
+    if(!k)return;
+    if(!qMap[k]) qMap[k]={q:r.question_name,sec:r.section_name,count:0};
+    qMap[k].count+=parseInt(r.fail_count)||0;
+  });
+  const topQ=Object.values(qMap).sort((a,b)=>b.count-a.count);
+  const maxQ=Math.max(1,...topQ.map(q=>q.count));
+  document.getElementById('fqTopBody').innerHTML=topQ.slice(0,12).map(q=>`
+    <tr>
+      <td>${esc(q.q)}</td>
+      <td style="color:var(--muted)">${esc(q.sec)}</td>
+      <td class="num bad">${q.count}</td>
+    </tr>`).join('')||'<tr><td colspan="3" style="color:var(--muted)">No failures</td></tr>';
+
+  // Per agent chart
+  const agMap={};
+  rows.forEach(r=>{ const nm=r.agent_name; if(!nm)return; agMap[nm]=(agMap[nm]||0)+(parseInt(r.fail_count)||0); });
+  const agList=Object.entries(agMap).sort((a,b)=>b[1]-a[1]);
+  destroyChart('fqAgent');
+  charts.fqAgent=new Chart(document.getElementById('fqAgentChart'),{
+    type:'bar',
+    data:{ labels:agList.map(a=>a[0].split(' ')[0]), datasets:[{ label:'Fails', data:agList.map(a=>a[1]), backgroundColor:'var(--red)', borderRadius:4 }] },
+    options:{ indexAxis:'y', plugins:{legend:{display:false}}, scales:{ x:{ticks:{color:'#6b7a99'},grid:{color:'#1d2535'},beginAtZero:true}, y:{ticks:{color:'#6b7a99',font:{size:11}},grid:{display:false}} } }
+  });
+
+  // WoW table
+  const wowRows=RAW.failedQ.filter(r=>r.month===month&&r.week_start&&r.week_start!=='');
+  const filtered=team==='ALL'?wowRows:wowRows.filter(r=>r.team===team);
+  document.getElementById('fqWowBody').innerHTML=filtered.sort((a,b)=>{
+    if(a.week_start<b.week_start)return -1; if(a.week_start>b.week_start)return 1; return (b.fail_count||0)-(a.fail_count||0);
+  }).map(r=>`
+    <tr>
+      <td style="color:var(--muted);font-family:'DM Mono',monospace;font-size:11px">${esc(r.week_start)}</td>
+      <td>${esc(r.agent_name)}</td>
+      <td><span style="color:${r.team==='Premium Support'?'var(--premium)':'var(--partner)'}">●</span> ${esc((r.team||'').replace(' Support',''))}</td>
+      <td>${esc(r.question_name)}</td>
+      <td style="color:var(--muted)">${esc(r.section_name)}</td>
+      <td class="num bad">${r.fail_count}</td>
+    </tr>`).join('')||'<tr><td colspan="6" style="color:var(--muted)">No week-over-week data</td></tr>';
+}
+
+// ── SECTIONS ───────────────────────────────────────────────────────────
+function renderSections(){
+  const month=document.getElementById('secMonth').value;
+  const rows=RAW.sections.filter(r=>r.month===month);
+  const prem=rows.filter(r=>r.team==='Premium Support');
+  const part=rows.filter(r=>r.team==='Partner Support');
+
+  function sectionChart(canvasId,data,color){
+    destroyChart(canvasId);
+    charts[canvasId]=new Chart(document.getElementById(canvasId),{
+      type:'bar',
+      data:{ labels:data.map(r=>r.section_name), datasets:[{ label:'Avg Score %', data:data.map(r=>n(r.avg_score_pct)), backgroundColor:color, borderRadius:5 }] },
+      options:{ indexAxis:'y', plugins:{legend:{display:false}}, scales:{ x:{ticks:{color:'#6b7a99'},grid:{color:'#1d2535'},min:0,max:100}, y:{ticks:{color:'#6b7a99'},grid:{display:false}} } }
+    });
+  }
+  sectionChart('secPremiumChart',prem,'var(--premium)');
+  sectionChart('secPartnerChart',part,'var(--partner)');
+
+  document.getElementById('secBody').innerHTML=rows.sort((a,b)=>b.avg_score_pct-a.avg_score_pct).map(r=>`
+    <tr>
+      <td>${esc(r.section_name)}</td>
+      <td><span style="color:${r.team==='Premium Support'?'var(--premium)':'var(--partner)'}">●</span> ${esc(r.team.replace(' Support',''))}</td>
+      <td class="num ${scoreColor(n(r.avg_score_pct))}">${n(r.avg_score_pct)}%</td>
+      <td class="num" style="color:var(--muted)">${r.eval_count}</td>
+    </tr>`).join('')||'<tr><td colspan="4" style="color:var(--muted)">No data</td></tr>';
+}
+
+// ── INIT ───────────────────────────────────────────────────────────────
+loadAll();
+</script>
+</body>
+</html>
