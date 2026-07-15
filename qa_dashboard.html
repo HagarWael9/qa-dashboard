@@ -712,16 +712,20 @@ function renderMonthly(){
 
   const premRow = RAW.monthly.find(r=>r.month===month&&r.team==='Premium Support')||{};
   const partRow = RAW.monthly.find(r=>r.month===month&&r.team==='Standard Support')||{};
-  const rows    = team==='ALL'?[premRow,partRow]:[RAW.monthly.find(r=>r.month===month&&r.team===team)||{}];
 
-  const totalEvals = (n(premRow.manual_eval_count,0)+n(partRow.manual_eval_count,0));
-  const avgScore   = team==='ALL'
-    ? ((n(premRow.avg_score_pct)*n(premRow.manual_eval_count,0)+n(partRow.avg_score_pct)*n(partRow.manual_eval_count,0))/(totalEvals||1))
-    : n((RAW.monthly.find(r=>r.month===month&&r.team===team)||{}).avg_score_pct);
+  // Apply team filter to eval count and avg score
+  const filteredRows = team==='ALL'
+    ? [premRow, partRow]
+    : [RAW.monthly.find(r=>r.month===month&&r.team===team)||{}];
+
+  const totalEvals = filteredRows.reduce((sum,r)=>sum+n(r.manual_eval_count,0),0);
+  const avgScore   = totalEvals > 0
+    ? filteredRows.reduce((sum,r)=>sum+n(r.avg_score_pct)*n(r.manual_eval_count,0),0) / totalEvals
+    : 0;
 
   document.getElementById('mKpis').innerHTML = [
-    kpiCard('Manual Evals', totalEvals.toLocaleString(), month),
-    kpiCard('Avg QA Score', n(avgScore,1)+'%', 'across both teams', avgScore>=85?'good':avgScore<75?'warn':''),
+    kpiCard('Manual Evals', totalEvals.toLocaleString(), team==='ALL'?'both teams':team.replace(' Support','')),
+    kpiCard('Avg QA Score', n(avgScore,1)+'%', team==='ALL'?'across both teams':team.replace(' Support',''), avgScore>=85?'good':avgScore<75?'warn':''),
     kpiCard('Premium Avg', n(premRow.avg_score_pct)+'%', n(premRow.manual_eval_count,0)+' evals','premium'),
     kpiCard('Standard Avg', n(partRow.avg_score_pct)+'%', n(partRow.manual_eval_count,0)+' evals','partner'),
   ].join('');
@@ -765,17 +769,48 @@ function renderMonthly(){
       <td class="num ${scoreColor(v.score)}">${v.score}%</td>
     </tr>`).join('')||'<tr><td colspan="4" style="color:var(--muted)">No data</td></tr>';
 
-  // Dispute KPIs
-  const dispKpis = [];
-  [premRow,partRow].forEach(r=>{
-    if(!r.month) return;
-    const label = r.team.replace(' Support','');
-    dispKpis.push(kpiCard('Disputes — '+label, n(r.disputes_total,0), n(r.disputes_pct_of_evals)+'% of evals'));
-    dispKpis.push(kpiCard('TL Avg Response', n(r.tl_avg_reply_hours)+'h', n(r.tl_sla_breach_count,0)+' breaches ('+n(r.tl_sla_breach_pct)+'%)', n(r.tl_avg_reply_hours)<=48?'good':'warn'));
-    dispKpis.push(kpiCard('Omar Avg Response', n(r.omar_avg_hours)+'h', n(r.omar_sla_breach_count,0)+' breaches ('+n(r.omar_sla_breach_pct)+'%)', n(r.omar_avg_hours)<=48?'good':'warn'));
-    dispKpis.push(kpiCard('Omar Decisions', n(r.omar_approved_pct)+'% approved', n(r.omar_rejected_pct)+'% rejected'));
+  // Dispute KPIs — per TL breakdown
+  const monthDisputes = RAW.disputes.filter(r=>{
+    const d = new Date(r.created_at);
+    const label = d.toLocaleString('en-US',{month:'long',year:'numeric'});
+    return label === month;
   });
-  document.getElementById('mDisputeKpis').innerHTML = dispKpis.join('');
+
+  const TL_LIST = ['Radwa Aly','Mai Hussein','Karim Farrag'];
+  const tlDisputeKpis = TL_LIST.map(tl => {
+    const tlRows = monthDisputes.filter(r=>r.supervisor===tl);
+    if(!tlRows.length) return kpiCard(tl+' — TL SLA','—','no disputes this month');
+    const tlHrs  = tlRows.filter(r=>r.tl_reply_hours!==''&&r.tl_reply_hours!=='n/a').map(r=>parseFloat(r.tl_reply_hours)||0);
+    const tlBr   = tlRows.filter(r=>r.tl_within_sla==='no').length;
+    const avgHrs = tlHrs.length?(tlHrs.reduce((a,b)=>a+b,0)/tlHrs.length):null;
+    return kpiCard(
+      tl+' — TL SLA',
+      avgHrs!==null?avgHrs.toFixed(1)+'h avg':'pending',
+      tlBr+' breach'+(tlBr!==1?'es':'')+' · '+tlRows.length+' disputes',
+      avgHrs!==null&&avgHrs<=48?'good':'warn'
+    );
+  }).join('');
+
+  // Omar overall
+  const omarDisp  = monthDisputes.filter(r=>r.tl_decision==='approved');
+  const omarHrsArr= omarDisp.filter(r=>r.omar_hours!==''&&r.omar_hours!=='n/a').map(r=>parseFloat(r.omar_hours)||0);
+  const omarAvg   = omarHrsArr.length?(omarHrsArr.reduce((a,b)=>a+b,0)/omarHrsArr.length):null;
+  const omarBr    = omarDisp.filter(r=>r.omar_within_sla==='no').length;
+  const omarApp   = omarDisp.filter(r=>r.omar_decision==='approved').length;
+  const omarRej   = omarDisp.filter(r=>r.omar_decision==='rejected').length;
+  const dispPctOfEvals = totalEvals>0?(monthDisputes.length/totalEvals*100):0;
+
+  const dispKpis = [
+    kpiCard('Total Disputes', monthDisputes.length, n(dispPctOfEvals,1)+'% of manual evals'),
+    kpiCard('Omar Avg Response', omarAvg!==null?omarAvg.toFixed(1)+'h':'pending', omarBr+' breaches · '+omarDisp.length+' reached Omar', omarAvg!==null&&omarAvg<=48?'good':'warn'),
+    kpiCard('Omar Approved', omarApp, omarDisp.length?n(omarApp/omarDisp.length*100,1)+'% of escalated':''),
+    kpiCard('Omar Rejected', omarRej, omarDisp.length?n(omarRej/omarDisp.length*100,1)+'% of escalated':''),
+  ].join('');
+
+  document.getElementById('mDisputeKpis').innerHTML =
+    dispKpis +
+    '<div class="section-hdr" style="margin:16px 0 10px">SLA per Team Lead <span style="color:var(--muted);font-size:10px;text-transform:none;letter-spacing:0">48h target · from submission to first TL reply</span></div>' +
+    '<div class="kpi-row">'+tlDisputeKpis+'</div>';
 }
 
 // ── DISPUTES ───────────────────────────────────────────────────────────
@@ -797,12 +832,27 @@ function renderDisputes(){
   const approved    = omarRows.filter(r=>r.omar_decision==='approved').length;
   const rejected    = omarRows.filter(r=>r.omar_decision==='rejected').length;
 
+  // Per-TL SLA breakdown
+  const TLS = ['Radwa Aly','Mai Hussein','Karim Farrag'];
+  const tlKpis = TLS.map(tl => {
+    const tlRows = rows.filter(r=>r.supervisor===tl);
+    if(!tlRows.length) return '';
+    const tlHrs   = tlRows.filter(r=>r.tl_reply_hours!==''&&r.tl_reply_hours!=='n/a').map(r=>parseFloat(r.tl_reply_hours)||0);
+    const tlBr    = tlRows.filter(r=>r.tl_within_sla==='no').length;
+    const avgHrs  = tlHrs.length ? (tlHrs.reduce((a,b)=>a+b,0)/tlHrs.length) : null;
+    return kpiCard(
+      tl + ' — TL SLA',
+      avgHrs!==null ? avgHrs.toFixed(1)+'h avg' : 'pending',
+      tlBr+' breach'+(tlBr!==1?'es':'')+' of '+tlRows.length+' disputes',
+      avgHrs!==null&&avgHrs<=48?'good':'warn'
+    );
+  }).join('');
+
   document.getElementById('dispKpis').innerHTML=[
     kpiCard('Total Disputes', total, 'selected filters'),
-    kpiCard('TL SLA Breaches', tlBreaches, tlBreaches?'⚠ exceeded 48h':'✓ all within 48h', tlBreaches?'warn':'good'),
     kpiCard('Omar SLA Breaches', omarBreaches, omarBreaches?'⚠ exceeded 48h':'✓ all within 48h', omarBreaches?'warn':'good'),
     kpiCard('Outcomes (Omar)', approved+' approved / '+rejected+' rejected', omarRows.length+' reached Omar'),
-  ].join('');
+  ].join('') + (tlKpis ? '<div class="section-hdr" style="margin:16px 0 10px">SLA per Team Lead</div><div class="kpi-row">'+tlKpis+'</div>' : '');
 
   document.getElementById('dispBody').innerHTML = rows.map(r=>`
     <tr>
