@@ -229,6 +229,7 @@ td.bad  { color: var(--red); }
             <option value="Standard Support">Standard Support</option>
           </select>
         </span>
+        <span><label class="lbl">Agent</label><select id="weekAgent"><option value="ALL">All agents</option></select></span>
         <button class="btn" onclick="renderWeekly()">Apply</button>
       </div>
 
@@ -282,6 +283,7 @@ td.bad  { color: var(--red); }
             <option value="Standard Support">Standard Support</option>
           </select>
         </span>
+        <span><label class="lbl">Agent</label><select id="monthAgent"><option value="ALL">All agents</option></select></span>
         <button class="btn" onclick="renderMonthly()">Apply</button>
       </div>
 
@@ -330,6 +332,7 @@ td.bad  { color: var(--red); }
             <option value="Standard Support">Standard Support</option>
           </select>
         </span>
+        <span><label class="lbl">Agent</label><select id="dispAgent"><option value="ALL">All agents</option></select></span>
         <span><label class="lbl">Status</label>
           <select id="dispStatus">
             <option value="ALL">All</option>
@@ -377,6 +380,7 @@ td.bad  { color: var(--red); }
             <option value="Standard Support">Standard Support</option>
           </select>
         </span>
+        <span><label class="lbl">Agent</label><select id="fqAgent"><option value="ALL">All agents</option></select></span>
         <button class="btn" onclick="renderFailedQ()">Apply</button>
       </div>
 
@@ -417,6 +421,7 @@ td.bad  { color: var(--red); }
 
       <div class="filters">
         <span><label class="lbl">Month</label><select id="secMonth"></select></span>
+        <span><label class="lbl">Agent</label><select id="secAgent"><option value="ALL">All agents</option></select></span>
         <button class="btn" onclick="renderSections()">Apply</button>
       </div>
 
@@ -534,16 +539,24 @@ function setStatus(state,txt){
 
 // ── SELECTS ────────────────────────────────────────────────────────────
 function populateSelects(){
-  const weeks = [...new Set(RAW.weekly.map(r=>r.week_start))].sort().reverse();
+  const weeks  = [...new Set(RAW.weekly.map(r=>r.week_start))].sort().reverse();
   const months = [...new Set(RAW.monthly.map(r=>r.month))];
 
-  ['weekSelect'].forEach(id=>{
-    const el=document.getElementById(id);
-    el.innerHTML=weeks.map(w=>`<option value="${w}">${w}</option>`).join('');
-  });
+  // Get all unique agent names from failed questions (most complete agent list)
+  const agents = [...new Set([
+    ...RAW.failedQ.map(r=>r.agent_name),
+    ...RAW.disputes.map(r=>r.agent_name||r.agent_email)
+  ].filter(Boolean))].sort();
+
+  const agentOpts = '<option value="ALL">All agents</option>' + agents.map(a=>`<option value="${esc(a)}">${esc(a)}</option>`).join('');
+
+  document.getElementById('weekSelect').innerHTML = weeks.map(w=>`<option value="${w}">${w}</option>`).join('');
   ['monthSelect','fqMonth','secMonth'].forEach(id=>{
+    document.getElementById(id).innerHTML = months.map(m=>`<option value="${m}">${m}</option>`).join('');
+  });
+  ['weekAgent','monthAgent','dispAgent','fqAgent','secAgent'].forEach(id=>{
     const el=document.getElementById(id);
-    el.innerHTML=months.map(m=>`<option value="${m}">${m}</option>`).join('');
+    if(el) el.innerHTML=agentOpts;
   });
 }
 
@@ -580,6 +593,7 @@ function renderWeekly(){
   const week = document.getElementById('weekSelect').value;
   const team = document.getElementById('weekTeam').value;
 
+  const agent = document.getElementById('weekAgent').value;
   const allWeeks = RAW.weekly;
   const weekRows = allWeeks.filter(r=>r.week_start===week && (team==='ALL'?!r.supervisor:r.team===team&&!r.supervisor));
   const row = weekRows[0] || {};
@@ -592,7 +606,7 @@ function renderWeekly(){
   document.getElementById('wKpis').innerHTML = [
     kpiCard('Manual Evals — Premium', n(premRow.manual_eval_count,0), 'this week','premium'),
     kpiCard('Avg Score — Premium', n(premRow.avg_score_pct)+'%', '','premium'),
-    kpiCard('Manual Evals — Partner', n(partRow.manual_eval_count,0), 'this week','partner'),
+    kpiCard('Manual Evals — Standard', n(partRow.manual_eval_count,0), 'this week','partner'),
     kpiCard('Avg Score — Partner', n(partRow.avg_score_pct)+'%', '','partner'),
   ].join('');
 
@@ -626,7 +640,7 @@ function renderWeekly(){
       labels: weeks12,
       datasets:[
         { label:'Premium', data: weeks12.map(w=>{ const r=allWeeks.find(x=>x.week_start===w&&x.team==='Premium Support'&&!x.supervisor); return r?n(r.avg_score_pct):null; }), borderColor:'var(--premium)', backgroundColor:'#4f8ef722', tension:.3, fill:true, pointRadius:3, spanGaps:true },
-        { label:'Partner', data: weeks12.map(w=>{ const r=allWeeks.find(x=>x.week_start===w&&x.team==='Standard Support'&&!x.supervisor); return r?n(r.avg_score_pct):null; }), borderColor:'var(--partner)', backgroundColor:'#a78bfa22', tension:.3, fill:true, pointRadius:3, spanGaps:true }
+        { label:'Standard', data: weeks12.map(w=>{ const r=allWeeks.find(x=>x.week_start===w&&x.team==='Standard Support'&&!x.supervisor); return r?n(r.avg_score_pct):null; }), borderColor:'var(--partner)', backgroundColor:'#a78bfa22', tension:.3, fill:true, pointRadius:3, spanGaps:true }
       ]
     },
     options:{ scales:{ x:{ticks:{color:'#6b7a99',font:{size:10}},grid:{color:'#1d2535'}}, y:{ticks:{color:'#6b7a99'},grid:{color:'#1d2535'},beginAtZero:false,min:50,max:100} }, plugins:{legend:{labels:{color:'#e2e8f4',font:{size:11}}}} }
@@ -695,7 +709,7 @@ function renderMonthly(){
       labels: months6,
       datasets:[
         { label:'Premium', data:months6.map(m=>{ const r=RAW.monthly.find(x=>x.month===m&&x.team==='Premium Support'); return r?n(r.avg_score_pct):null; }), borderColor:'var(--premium)', backgroundColor:'#4f8ef722', tension:.3, fill:true, pointRadius:4, spanGaps:true },
-        { label:'Partner', data:months6.map(m=>{ const r=RAW.monthly.find(x=>x.month===m&&x.team==='Standard Support'); return r?n(r.avg_score_pct):null; }), borderColor:'var(--partner)', backgroundColor:'#a78bfa22', tension:.3, fill:true, pointRadius:4, spanGaps:true }
+        { label:'Standard', data:months6.map(m=>{ const r=RAW.monthly.find(x=>x.month===m&&x.team==='Standard Support'); return r?n(r.avg_score_pct):null; }), borderColor:'var(--partner)', backgroundColor:'#a78bfa22', tension:.3, fill:true, pointRadius:4, spanGaps:true }
       ]
     },
     options:{ scales:{ x:{ticks:{color:'#6b7a99',font:{size:10}},grid:{color:'#1d2535'}}, y:{ticks:{color:'#6b7a99'},grid:{color:'#1d2535'},min:50,max:100} }, plugins:{legend:{labels:{color:'#e2e8f4',font:{size:11}}}} }
@@ -736,9 +750,11 @@ function renderDisputes(){
   const team   = document.getElementById('dispTeam').value;
   const status = document.getElementById('dispStatus').value;
 
+  const dispAgent = document.getElementById('dispAgent').value;
   let rows = RAW.disputes;
-  if(team!=='ALL')   rows=rows.filter(r=>r.team===team);
-  if(status!=='ALL') rows=rows.filter(r=>String(r.status||'').toLowerCase()===status);
+  if(team!=='ALL')      rows=rows.filter(r=>r.team===team);
+  if(dispAgent!=='ALL') rows=rows.filter(r=>(r.agent_name||r.agent_email)===dispAgent);
+  if(status!=='ALL')    rows=rows.filter(r=>String(r.status||'').toLowerCase()===status);
   rows = [...rows].sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
 
   const total       = rows.length;
@@ -775,8 +791,10 @@ function renderFailedQ(){
   const month = document.getElementById('fqMonth').value;
   const team  = document.getElementById('fqTeam').value;
 
+  const fqAgent = document.getElementById('fqAgent').value;
   let rows = RAW.failedQ.filter(r=>r.month===month&&(!r.week_start||r.week_start===''));
-  if(team!=='ALL') rows=rows.filter(r=>r.team===team);
+  if(team!=='ALL')    rows=rows.filter(r=>r.team===team);
+  if(fqAgent!=='ALL') rows=rows.filter(r=>r.agent_name===fqAgent);
 
   // Top failed questions
   const qMap={};
@@ -808,7 +826,8 @@ function renderFailedQ(){
 
   // WoW table
   const wowRows=RAW.failedQ.filter(r=>r.month===month&&r.week_start&&r.week_start!=='');
-  const filtered=team==='ALL'?wowRows:wowRows.filter(r=>r.team===team);
+  let filtered=team==='ALL'?wowRows:wowRows.filter(r=>r.team===team);
+  if(fqAgent!=='ALL') filtered=filtered.filter(r=>r.agent_name===fqAgent);
   document.getElementById('fqWowBody').innerHTML=filtered.sort((a,b)=>{
     if(a.week_start<b.week_start)return -1; if(a.week_start>b.week_start)return 1; return (b.fail_count||0)-(a.fail_count||0);
   }).map(r=>`
@@ -825,6 +844,8 @@ function renderFailedQ(){
 // ── SECTIONS ───────────────────────────────────────────────────────────
 function renderSections(){
   const month=document.getElementById('secMonth').value;
+  const secAgent = document.getElementById('secAgent').value;
+  // Section scores tab doesn't have agent breakdown — show note if agent selected
   const rows=RAW.sections.filter(r=>r.month===month);
   const prem=rows.filter(r=>r.team==='Premium Support');
   const part=rows.filter(r=>r.team==='Standard Support');
