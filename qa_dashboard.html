@@ -274,6 +274,15 @@ td.bad  { color: var(--red); }
         </div>
       </div>
 
+      <div class="panel" style="margin-bottom:16px">
+        <h3>Scores per Team Lead</h3>
+        <div class="cap">Avg QA score and eval count per TL this week</div>
+        <table>
+          <thead><tr><th>Team Lead</th><th>Team</th><th class="num">Evals</th><th class="num">Avg Score</th><th class="num">Target</th><th class="num">vs Target</th></tr></thead>
+          <tbody id="weekTLBody"></tbody>
+        </table>
+      </div>
+
       <div class="grid2e">
         <div class="panel">
           <h3>Eval count by team</h3>
@@ -636,11 +645,17 @@ function renderWeekly(){
   const partRow = allWeeks.find(r=>r.week_start===week&&r.team==='Standard Support'&&!r.supervisor)||{};
   const allRow  = allWeeks.find(r=>r.week_start===week&&r.team==='ALL')||{};
 
+  const premScore = n(premRow.avg_score_pct);
+  const partScore = n(partRow.avg_score_pct);
   document.getElementById('wKpis').innerHTML = [
     kpiCard('Manual Evals — Premium', n(premRow.manual_eval_count,0), 'this week','premium'),
-    kpiCard('Avg Score — Premium', n(premRow.avg_score_pct)+'%', '','premium'),
+    kpiCard('Avg Score — Premium', premScore+'%',
+      'Target: 90% · '+(premScore>=90?'✓ on target':'⚠ '+(premScore-90).toFixed(1)+'% below target'),
+      premScore>=90?'good':'warn'),
     kpiCard('Manual Evals — Standard', n(partRow.manual_eval_count,0), 'this week','partner'),
-    kpiCard('Avg Score — Standard', n(partRow.avg_score_pct)+'%', '','partner'),
+    kpiCard('Avg Score — Standard', partScore+'%',
+      'Target: 80% · '+(partScore>=80?'✓ on target':'⚠ '+(partScore-80).toFixed(1)+'% below target'),
+      partScore>=80?'good':'warn'),
   ].join('');
 
   // Lowest agents table
@@ -702,6 +717,29 @@ function renderWeekly(){
     options:{ plugins:{legend:{display:false}}, scales:{ x:{ticks:{color:cssVar('--muted'),font:{size:9}},grid:{display:false}}, y:{ticks:{color:cssVar('--muted')},grid:{color:cssVar('--border')},min:50,max:100} } }
   });
 
+  // TL scores table
+  const TL_LIST = [
+    {name:'Radwa Aly', team:'Premium Support', target:90},
+    {name:'Mai Hussein', team:'Standard Support', target:80},
+    {name:'Karim Farrag', team:'Standard Support', target:80}
+  ];
+  document.getElementById('weekTLBody').innerHTML = TL_LIST.map(tl => {
+    const tlRow = allWeeks.find(r=>r.week_start===week&&r.supervisor===tl.name)||{};
+    const score = n(tlRow.avg_score_pct);
+    const evals = n(tlRow.manual_eval_count,0);
+    const diff  = score>0 ? (score - tl.target).toFixed(1) : '—';
+    const diffClass = score>0 ? (score>=tl.target?'good':'bad') : '';
+    const diffStr = score>0 ? (score>=tl.target?'+'+diff+'%':diff+'%') : '—';
+    return `<tr>
+      <td><strong>${esc(tl.name)}</strong></td>
+      <td><span style="color:${tl.team==='Premium Support'?'var(--premium)':'var(--partner)'}">●</span> ${tl.team.replace(' Support','')}</td>
+      <td class="num">${evals||'—'}</td>
+      <td class="num ${scoreColor(score)}">${score>0?score+'%':'—'}</td>
+      <td class="num" style="color:var(--muted)">${tl.target}%</td>
+      <td class="num ${diffClass}">${diffStr}</td>
+    </tr>`;
+  }).join('');
+
   document.getElementById('footerNote').textContent = 'Week: '+week+' → '+(allWeeks.find(r=>r.week_start===week)||{}).week_end+' · Last loaded '+new Date().toLocaleString();
 }
 
@@ -730,15 +768,18 @@ function renderMonthly(){
     kpiCard('Standard Avg', n(partRow.avg_score_pct)+'%', n(partRow.manual_eval_count,0)+' evals','partner'),
   ].join('');
 
-  // Outliers
-  const outliers = [];
-  [premRow,partRow].forEach(r=>{ if(r.outlier_agents) outliers.push(...String(r.outlier_agents).split(',').map(s=>s.trim()).filter(Boolean)); });
+  // Outliers — apply team and agent filter
+  const monthAgent = document.getElementById('monthAgent').value;
+  let outliers = [];
+  const outlierRows = team==='ALL'?[premRow,partRow]:[RAW.monthly.find(r=>r.month===month&&r.team===team)||{}];
+  outlierRows.forEach(r=>{ if(r.outlier_agents) outliers.push(...String(r.outlier_agents).split(',').map(s=>s.trim()).filter(Boolean)); });
+  if(monthAgent!=='ALL') outliers = outliers.filter(o=>o.toLowerCase().startsWith(monthAgent.split(' ')[0].toLowerCase()));
   document.getElementById('outlierChips').innerHTML = outliers.length
     ? outliers.map(o=>`<span class="chip">${esc(o)}</span>`).join('')
     : '<span style="color:var(--muted);font-size:12px">No outliers this month ✓</span>';
 
   // Monthly trend chart
-  const months6 = [...new Set(RAW.monthly.map(r=>r.month))];
+  const months6 = [...new Set(RAW.monthly.map(r=>r.month))].reverse();
   destroyChart('monthTrend');
   charts.monthTrend = new Chart(document.getElementById('monthTrendChart'),{
     type:'line',
@@ -757,7 +798,7 @@ function renderMonthly(){
   [premRow,partRow].forEach(row=>{
     for(let i=1;i<=3;i++){
       const nm=row['lowest_agent_'+i], sc=row['lowest_score_'+i];
-      if(nm&&sc) agentScores[nm]={score:n(sc),team:row.team};
+      if(nm&&sc) agentScores[nm]={score:n(sc),team:row.team,sup:row.supervisor||''};
     }
   });
   const sorted=Object.entries(agentScores).sort((a,b)=>a[1].score-b[1].score);
@@ -765,7 +806,7 @@ function renderMonthly(){
     <tr>
       <td>${esc(nm)}</td>
       <td><span style="color:${v.team==='Premium Support'?'var(--premium)':'var(--partner)'}">●</span> ${esc(v.team.replace(' Support',''))}</td>
-      <td></td>
+      <td style="color:var(--muted)">${esc(v.sup)}</td>
       <td class="num ${scoreColor(v.score)}">${v.score}%</td>
     </tr>`).join('')||'<tr><td colspan="4" style="color:var(--muted)">No data</td></tr>';
 
