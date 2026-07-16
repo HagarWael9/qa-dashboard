@@ -794,11 +794,22 @@ function renderMonthly(){
   });
 
   // Lowest agents
+  // Build a name->supervisor lookup from all weekly rows (supervisor rows have the TL name)
+  const supLookup = {};
+  RAW.weekly.forEach(r=>{
+    if(r.supervisor && r.supervisor !== 'ALL') {
+      for(let i=1;i<=3;i++){
+        const nm = r['lowest_agent_'+i];
+        if(nm) supLookup[nm] = r.supervisor;
+      }
+    }
+  });
+
   const agentScores={};
   [premRow,partRow].forEach(row=>{
     for(let i=1;i<=3;i++){
       const nm=row['lowest_agent_'+i], sc=row['lowest_score_'+i];
-      if(nm&&sc) agentScores[nm]={score:n(sc),team:row.team,sup:row.supervisor||''};
+      if(nm&&sc) agentScores[nm]={score:n(sc),team:row.team,sup:supLookup[nm]||''};
     }
   });
   const sorted=Object.entries(agentScores).sort((a,b)=>a[1].score-b[1].score);
