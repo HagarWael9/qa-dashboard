@@ -315,7 +315,6 @@ td.bad  { color: var(--red); }
             <option value="Standard Support">Standard Support</option>
           </select>
         </span>
-        <span><label class="lbl">Agent</label><select id="monthAgent"><option value="ALL">All agents</option></select></span>
         <button class="btn" onclick="renderMonthly()">Apply</button>
       </div>
 
@@ -597,7 +596,7 @@ function populateSelects(){
   ['monthSelect','fqMonth','secMonth'].forEach(id=>{
     document.getElementById(id).innerHTML = months.map(m=>`<option value="${m}">${m}</option>`).join('');
   });
-  ['monthAgent','dispAgent','fqAgent'].forEach(id=>{
+  ['dispAgent','fqAgent'].forEach(id=>{
     const el=document.getElementById(id);
     if(el) el.innerHTML=agentOpts;
   });
@@ -769,11 +768,9 @@ function renderMonthly(){
   ].join('');
 
   // Outliers — apply team and agent filter
-  const monthAgent = document.getElementById('monthAgent').value;
   let outliers = [];
   const outlierRows = team==='ALL'?[premRow,partRow]:[RAW.monthly.find(r=>r.month===month&&r.team===team)||{}];
   outlierRows.forEach(r=>{ if(r.outlier_agents) outliers.push(...String(r.outlier_agents).split(',').map(s=>s.trim()).filter(Boolean)); });
-  if(monthAgent!=='ALL') outliers = outliers.filter(o=>o.toLowerCase().startsWith(monthAgent.split(' ')[0].toLowerCase()));
   document.getElementById('outlierChips').innerHTML = outliers.length
     ? outliers.map(o=>`<span class="chip">${esc(o)}</span>`).join('')
     : '<span style="color:var(--muted);font-size:12px">No outliers this month ✓</span>';
