@@ -219,7 +219,7 @@ td.bad  { color: var(--red); }
     <a class="nav-item" onclick="showView('disputes')" id="nav-disputes">Disputes & SLA</a>
     <a class="nav-item" onclick="showView('questions')" id="nav-questions">Failed Questions</a>
     <a class="nav-item" onclick="showView('sections')" id="nav-sections">Section Scores</a>
-    <div class="nav-section" style="margin-top:auto">Sync</div>
+    <div class="nav-section">Sync</div>
     <div style="padding:10px 20px">
       <div class="status-bar">
         <span class="status-dot loading" id="dot"></span>
@@ -877,8 +877,10 @@ function renderMonthly(){
     }
   });
 
+  // Apply team filter to lowest agents
+  const lowestRows = team==='ALL' ? [premRow,partRow] : [RAW.monthly.find(r=>r.month===month&&r.team===team)||{}];
   const agentScores={};
-  [premRow,partRow].forEach(row=>{
+  lowestRows.forEach(row=>{
     for(let i=1;i<=3;i++){
       const nm=row['lowest_agent_'+i], sc=row['lowest_score_'+i];
       if(nm&&sc) agentScores[nm]={score:n(sc),team:row.team,sup:supLookup[nm]||''};
