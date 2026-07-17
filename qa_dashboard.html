@@ -354,6 +354,23 @@ td.bad  { color: var(--red); }
 
 
 
+      <div class="panel" style="margin-bottom:16px">
+        <h3>Premium vs Standard — lowest scoring agents</h3>
+        <div class="cap">Bottom 3 per team side by side this month</div>
+        <table>
+          <thead>
+            <tr>
+              <th style="width:5%">#</th>
+              <th style="color:var(--premium)">Premium Support</th>
+              <th class="num" style="color:var(--premium)">Score</th>
+              <th style="color:var(--partner)">Standard Support</th>
+              <th class="num" style="color:var(--partner)">Score</th>
+            </tr>
+          </thead>
+          <tbody id="monthCompareBody"></tbody>
+        </table>
+      </div>
+
       <div class="section-hdr">Disputes & SLA</div>
       <div class="kpi-row" id="mDisputeKpis"></div>
     </div>
@@ -884,6 +901,23 @@ function renderMonthly(){
       <td style="color:var(--muted)">${esc(v.sup)}</td>
       <td class="num ${scoreColor(v.score)}">${v.score}%</td>
     </tr>`).join('')||'<tr><td colspan="4" style="color:var(--muted)">No data</td></tr>';
+
+  // Premium vs Standard monthly comparison table
+  const mPremAgents = [], mPartAgents = [];
+  for(let i=1;i<=3;i++){
+    mPremAgents.push({ name: premRow['lowest_agent_'+i]||'—', score: premRow['lowest_score_'+i]||null });
+    mPartAgents.push({ name: partRow['lowest_agent_'+i]||'—', score: partRow['lowest_score_'+i]||null });
+  }
+  document.getElementById('monthCompareBody').innerHTML = [1,2,3].map(i=>{
+    const p = mPremAgents[i-1], s = mPartAgents[i-1];
+    return `<tr>
+      <td style="color:var(--muted);font-weight:600">#${i}</td>
+      <td>${esc(p.name)}</td>
+      <td class="num ${p.score?scoreColor(n(p.score)):''}">${p.score?n(p.score)+'%':'—'}</td>
+      <td>${esc(s.name)}</td>
+      <td class="num ${s.score?scoreColor(n(s.score)):''}">${s.score?n(s.score)+'%':'—'}</td>
+    </tr>`;
+  }).join('');
 
   // Dispute KPIs — per TL breakdown
   const monthDisputes = RAW.disputes.filter(r=>{
