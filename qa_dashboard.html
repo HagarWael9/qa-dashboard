@@ -1151,8 +1151,19 @@ function renderFailedQ(){
   charts.fqAgent=new Chart(document.getElementById('fqAgentChart'),{
     type:'bar',
     data:{ labels:agListUniq.map(a=>a[0]), datasets:[{ label:'Fails', data:agListUniq.map(a=>a[1]), backgroundColor:cssVar('--red'), borderRadius:4 }] },
-    options:{ indexAxis:'y', plugins:{legend:{display:false}}, scales:{ x:{ticks:{color:cssVar('--muted')},grid:{color:cssVar('--border')},beginAtZero:true}, y:{ticks:{color:cssVar('--muted'),font:{size:10}},grid:{display:false}} } }
+    options:{ 
+      indexAxis:'y', 
+      plugins:{legend:{display:false}},
+      maintainAspectRatio: false,
+      scales:{ 
+        x:{ticks:{color:cssVar('--muted')},grid:{color:cssVar('--border')},beginAtZero:true}, 
+        y:{ticks:{color:cssVar('--muted'),font:{size:11}},grid:{display:false}} 
+      } 
+    }
   });
+  // Set canvas height based on number of agents
+  document.getElementById('fqAgentChart').parentElement.style.height = Math.max(300, agListUniq.length * 35) + 'px';
+  document.getElementById('fqAgentChart').style.maxHeight = 'none';
 
   // WoW table
   const wowRows=RAW.failedQ.filter(r=>r.month===month&&r.week_start&&r.week_start!=='');
