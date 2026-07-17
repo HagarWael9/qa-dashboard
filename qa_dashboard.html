@@ -683,7 +683,10 @@ function badge(v){
   if(String(v).startsWith('n/a')) return `<span class="badge na">n/a</span>`;
   return `<span class="badge na">${esc(v)}</span>`;
 }
-function scoreColor(s){ return s>=85?'good':s>=75?'':'bad'; }
+function scoreColor(s, target){ 
+  const t = target || 80; // default target 80%
+  return s>=t?'good':s>=(t*0.9)?'warn':'bad'; 
+}
 function kpiCard(label,val,sub,accent){
   return `<div class="kpi ${accent||''}">
     <div class="lbl2">${label}</div>
@@ -738,7 +741,7 @@ function renderWeekly(){
       <td>${esc(nm)}</td>
       <td><span style="color:${v.team==='Premium Support'?'var(--premium)':'var(--partner)'}">●</span> ${esc(v.team.replace(' Support',''))}</td>
       <td>${esc(v.sup)}</td>
-      <td class="num ${scoreColor(v.score)}">${v.score}%</td>
+      <td class="num ${scoreColor(v.score, v.team==='Premium Support'?90:80)}">${v.score}%</td>
     </tr>`).join('') || '<tr><td colspan="4" style="color:var(--muted)">No data</td></tr>';
 
   // Premium vs Standard comparison table
@@ -754,9 +757,9 @@ function renderWeekly(){
     return `<tr>
       <td style="color:var(--muted);font-weight:600">#${i}</td>
       <td>${esc(p.name)}</td>
-      <td class="num ${p.score?scoreColor(n(p.score)):''}">${p.score?n(p.score)+'%':'—'}</td>
+      <td class="num ${p.score?scoreColor(n(p.score),90):''}">${p.score?n(p.score)+'%':'—'}</td>
       <td>${esc(s.name)}</td>
-      <td class="num ${s.score?scoreColor(n(s.score)):''}">${s.score?n(s.score)+'%':'—'}</td>
+      <td class="num ${s.score?scoreColor(n(s.score),80):''}">${s.score?n(s.score)+'%':'—'}</td>
     </tr>`;
   }).join('');
 
@@ -793,7 +796,10 @@ function renderWeekly(){
     type:'bar',
     data:{
       labels: agentList.map(a=>a.nm.split(' ')[0]),
-      datasets:[{ label:'Score %', data:agentList.map(a=>a.score), backgroundColor: agentList.map(a=>a.score>=85?cssVar('--green'):a.score>=75?cssVar('--blue'):cssVar('--red')), borderRadius:4 }]
+      datasets:[{ label:'Score %', data:agentList.map(a=>a.score), backgroundColor: agentList.map(a=>{
+          const tgt = a.team==='Premium Support'?90:80;
+          return a.score>=tgt?cssVar('--green'):a.score>=(tgt*0.9)?cssVar('--amber'):cssVar('--red');
+        }), borderRadius:4 }]
     },
     options:{ plugins:{legend:{display:false}}, scales:{ x:{ticks:{color:cssVar('--muted'),font:{size:9}},grid:{display:false}}, y:{ticks:{color:cssVar('--muted')},grid:{color:cssVar('--border')},min:50,max:100} } }
   });
@@ -815,7 +821,7 @@ function renderWeekly(){
       <td><strong>${esc(tl.name)}</strong></td>
       <td><span style="color:${tl.team==='Premium Support'?'var(--premium)':'var(--partner)'}">●</span> ${tl.team.replace(' Support','')}</td>
       <td class="num">${evals||'—'}</td>
-      <td class="num ${scoreColor(score)}">${score>0?score+'%':'—'}</td>
+      <td class="num ${scoreColor(score, tl.target)}">${score>0?score+'%':'—'}</td>
       <td class="num" style="color:var(--muted)">${tl.target}%</td>
       <td class="num ${diffClass}">${diffStr}</td>
     </tr>`;
@@ -844,7 +850,8 @@ function renderMonthly(){
 
   document.getElementById('mKpis').innerHTML = [
     kpiCard('Manual Evals', totalEvals.toLocaleString(), team==='ALL'?'both teams':team.replace(' Support','')),
-    kpiCard('Avg QA Score', n(avgScore,1)+'%', team==='ALL'?'across both teams':team.replace(' Support',''), avgScore>=85?'good':avgScore<75?'warn':''),
+    kpiCard('Avg QA Score', n(avgScore,1)+'%', team==='ALL'?'across both teams':team.replace(' Support',''), 
+      team==='Premium Support'?(avgScore>=90?'good':'warn'):team==='Standard Support'?(avgScore>=80?'good':'warn'):(avgScore>=82?'good':'warn')),
     kpiCard('Premium Avg', n(premRow.avg_score_pct)+'%', n(premRow.manual_eval_count,0)+' evals','premium'),
     kpiCard('Standard Avg', n(partRow.avg_score_pct)+'%', n(partRow.manual_eval_count,0)+' evals','partner'),
   ].join('');
@@ -899,7 +906,7 @@ function renderMonthly(){
       <td>${esc(nm)}</td>
       <td><span style="color:${v.team==='Premium Support'?'var(--premium)':'var(--partner)'}">●</span> ${esc(v.team.replace(' Support',''))}</td>
       <td style="color:var(--muted)">${esc(v.sup)}</td>
-      <td class="num ${scoreColor(v.score)}">${v.score}%</td>
+      <td class="num ${scoreColor(v.score, v.team==='Premium Support'?90:80)}">${v.score}%</td>
     </tr>`).join('')||'<tr><td colspan="4" style="color:var(--muted)">No data</td></tr>';
 
   // Premium vs Standard monthly comparison table
@@ -913,9 +920,9 @@ function renderMonthly(){
     return `<tr>
       <td style="color:var(--muted);font-weight:600">#${i}</td>
       <td>${esc(p.name)}</td>
-      <td class="num ${p.score?scoreColor(n(p.score)):''}">${p.score?n(p.score)+'%':'—'}</td>
+      <td class="num ${p.score?scoreColor(n(p.score),90):''}">${p.score?n(p.score)+'%':'—'}</td>
       <td>${esc(s.name)}</td>
-      <td class="num ${s.score?scoreColor(n(s.score)):''}">${s.score?n(s.score)+'%':'—'}</td>
+      <td class="num ${s.score?scoreColor(n(s.score),80):''}">${s.score?n(s.score)+'%':'—'}</td>
     </tr>`;
   }).join('');
 
@@ -1205,7 +1212,7 @@ function renderSections(){
     <tr>
       <td>${esc(r.section_name)}</td>
       <td><span style="color:${r.team==='Premium Support'?'var(--premium)':'var(--partner)'}">●</span> ${esc(r.team.replace(' Support',''))}</td>
-      <td class="num ${scoreColor(n(r.avg_score_pct))}">${n(r.avg_score_pct)}%</td>
+      <td class="num ${scoreColor(n(r.avg_score_pct), r.team==='Premium Support'?90:80)}">${n(r.avg_score_pct)}%</td>
       <td class="num" style="color:var(--muted)">${r.eval_count}</td>
     </tr>`).join('')||'<tr><td colspan="4" style="color:var(--muted)">No data</td></tr>';
 }
