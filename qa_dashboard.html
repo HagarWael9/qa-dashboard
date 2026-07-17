@@ -641,7 +641,19 @@ function populateSelects(){
 
   const agentOpts = '<option value="ALL">All agents</option>' + agents.map(a=>`<option value="${esc(a)}">${esc(a)}</option>`).join('');
 
-  document.getElementById('weekSelect').innerHTML = weeks.map(w=>`<option value="${w}">${w}</option>`).join('');
+  // Show week as date range "06 Jul → 12 Jul 2026"
+  const weekEndMap = {};
+  RAW.weekly.forEach(r=>{ if(r.week_start && r.week_end) weekEndMap[r.week_start] = r.week_end; });
+
+  function fmtWeekLabel(start, end) {
+    const fmt = d => {
+      const dt = new Date(d);
+      return dt.getDate().toString().padStart(2,'0') + ' ' + dt.toLocaleString('en-GB',{month:'short'}) + ' ' + dt.getFullYear();
+    };
+    return end ? fmt(start) + ' → ' + fmt(end) : start;
+  }
+
+  document.getElementById('weekSelect').innerHTML = weeks.map(w=>`<option value="${w}">${fmtWeekLabel(w, weekEndMap[w])}</option>`).join('');
 
   // Get months from all sources to ensure sections and failed_questions are covered
   const allMonths = [...new Set([
