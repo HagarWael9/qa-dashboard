@@ -1144,10 +1144,13 @@ function renderFailedQ(){
   const agMap={};
   rows.forEach(r=>{ const nm=r.agent_name; if(!nm)return; agMap[nm]=(agMap[nm]||0)+(parseInt(r.fail_count)||0); });
   const agList=Object.entries(agMap).sort((a,b)=>b[1]-a[1]);
+  // Deduplicate labels — Chart.js shows two bars when same label appears twice
+  const seenLabels=new Set();
+  const agListUniq=agList.filter(([nm])=>{ if(seenLabels.has(nm)) return false; seenLabels.add(nm); return true; });
   destroyChart('fqAgent');
   charts.fqAgent=new Chart(document.getElementById('fqAgentChart'),{
     type:'bar',
-    data:{ labels:agList.map(a=>a[0]), datasets:[{ label:'Fails', data:agList.map(a=>a[1]), backgroundColor:cssVar('--red'), borderRadius:4 }] },
+    data:{ labels:agListUniq.map(a=>a[0]), datasets:[{ label:'Fails', data:agListUniq.map(a=>a[1]), backgroundColor:cssVar('--red'), borderRadius:4 }] },
     options:{ indexAxis:'y', plugins:{legend:{display:false}}, scales:{ x:{ticks:{color:cssVar('--muted')},grid:{color:cssVar('--border')},beginAtZero:true}, y:{ticks:{color:cssVar('--muted'),font:{size:10}},grid:{display:false}} } }
   });
 
