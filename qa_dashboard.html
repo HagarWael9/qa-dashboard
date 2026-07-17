@@ -55,20 +55,13 @@ body {
 a { color: inherit; text-decoration: none; }
 
 /* ── LAYOUT ── */
-.shell { height: 100vh; overflow: hidden; }
+.shell { display: flex; min-height: 100vh; }
 .sidebar {
-  width: 200px; flex-shrink: 0; background: var(--surface);
-  border-right: 1px solid var(--border); padding: 16px 0;
-  position: fixed; top: 0; left: 0; height: 100vh; overflow-y: auto;
-  z-index: 100;
+  width: 220px; flex-shrink: 0; background: var(--surface);
+  border-right: 1px solid var(--border); padding: 24px 0;
+  position: sticky; top: 0; height: 100vh; overflow-y: auto;
 }
-.main { 
-  min-width: 0; padding: 28px 32px 80px; 
-  margin-left: 200px; 
-  height: 100vh; 
-  overflow-y: auto;
-  position: relative;
-}
+.main { flex: 1; min-width: 0; padding: 28px 32px 80px; }
 
 /* ── SIDEBAR ── */
 .logo {
@@ -190,8 +183,8 @@ td.bad  { color: var(--red); }
 .section-hdr::after { content:''; flex:1; height:1px; background:var(--border); }
 
 /* ── VIEWS ── */
-.view { display: none; }
-.view.active { display: block; }
+.view { display: none; visibility: hidden; position: absolute; top: 0; left: 0; width: 100%; }
+.view.active { display: block; visibility: visible; position: relative; }
 
 /* ── OUTLIER CHIPS ── */
 .chip-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
@@ -661,8 +654,7 @@ function showView(v){
   document.querySelectorAll('.nav-item').forEach(el=>el.classList.remove('active'));
   document.getElementById('view-'+v).classList.add('active');
   document.getElementById('nav-'+v).classList.add('active');
-  // Scroll main content to top when switching views
-  document.querySelector('.main').scrollTop = 0;
+
 }
 
 // ── HELPERS ────────────────────────────────────────────────────────────
