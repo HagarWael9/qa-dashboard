@@ -284,22 +284,26 @@ td.bad  { color: var(--red); }
       </div>
 
       <div class="panel" style="margin-bottom:16px">
-        <h3>Premium vs Standard — lowest scoring agents comparison</h3>
-        <div class="cap">Side by side bottom 3 agents per team this week</div>
-        <canvas id="weekCompareChart"></canvas>
+        <h3>Premium vs Standard — lowest scoring agents</h3>
+        <div class="cap">Bottom 3 per team side by side this week</div>
+        <table>
+          <thead>
+            <tr>
+              <th style="width:5%">#</th>
+              <th style="color:var(--premium)">Premium Support</th>
+              <th class="num" style="color:var(--premium)">Score</th>
+              <th style="color:var(--partner)">Standard Support</th>
+              <th class="num" style="color:var(--partner)">Score</th>
+            </tr>
+          </thead>
+          <tbody id="weekCompareBody"></tbody>
+        </table>
       </div>
 
-      <div class="grid2e">
-        <div class="panel">
-          <h3>Eval count by team</h3>
-          <div class="cap">Manual evaluations in selected week</div>
-          <canvas id="weekEvalChart"></canvas>
-        </div>
-        <div class="panel">
-          <h3>Score distribution</h3>
-          <div class="cap">All agents in selected week — score spread</div>
-          <canvas id="weekScoreDistChart"></canvas>
-        </div>
+      <div class="panel" style="margin-bottom:16px">
+        <h3>Score distribution</h3>
+        <div class="cap">All agents in selected week — score spread</div>
+        <canvas id="weekScoreDistChart"></canvas>
       </div>
     </div>
 
@@ -720,38 +724,24 @@ function renderWeekly(){
       <td class="num ${scoreColor(v.score)}">${v.score}%</td>
     </tr>`).join('') || '<tr><td colspan="4" style="color:var(--muted)">No data</td></tr>';
 
-  // Premium vs Standard comparison chart
+  // Premium vs Standard comparison table
   const wPremRow = allWeeks.find(r=>r.week_start===week&&r.team==='Premium Support'&&!r.supervisor)||{};
   const wPartRow = allWeeks.find(r=>r.week_start===week&&r.team==='Standard Support'&&!r.supervisor)||{};
   const wPremAgents = [], wPartAgents = [];
-  [wPremRow, wPartRow].forEach(row=>{
-    const isPrem = row.team==='Premium Support';
-    for(let i=1;i<=3;i++){
-      const nm=row['lowest_agent_'+i], sc=row['lowest_score_'+i];
-      if(nm&&sc) (isPrem?wPremAgents:wPartAgents).push({name:nm.split(' ')[0], score:n(sc)});
-    }
-  });
-  while(wPremAgents.length<3) wPremAgents.push({name:'—',score:null});
-  while(wPartAgents.length<3) wPartAgents.push({name:'—',score:null});
-  const wCmpLabels = wPremAgents.map((a,i)=>'#'+(i+1)+': '+a.name+' / '+(wPartAgents[i]?.name||'—'));
-  destroyChart('weekCompare');
-  charts.weekCompare = new Chart(document.getElementById('weekCompareChart'),{
-    type:'bar',
-    data:{
-      labels: wCmpLabels,
-      datasets:[
-        { label:'Premium', data:wPremAgents.map(a=>a.score), backgroundColor:cssVar('--premium'), borderRadius:5 },
-        { label:'Standard', data:wPartAgents.map(a=>a.score), backgroundColor:cssVar('--partner'), borderRadius:5 }
-      ]
-    },
-    options:{
-      plugins:{ legend:{ labels:{ color:cssVar('--text'), font:{size:11} } } },
-      scales:{
-        x:{ ticks:{ color:cssVar('--muted'), font:{size:11} }, grid:{display:false} },
-        y:{ ticks:{ color:cssVar('--muted') }, grid:{ color:cssVar('--border') }, min:50, max:100 }
-      }
-    }
-  });
+  for(let i=1;i<=3;i++){
+    wPremAgents.push({ name: wPremRow['lowest_agent_'+i]||'—', score: wPremRow['lowest_score_'+i]||null });
+    wPartAgents.push({ name: wPartRow['lowest_agent_'+i]||'—', score: wPartRow['lowest_score_'+i]||null });
+  }
+  document.getElementById('weekCompareBody').innerHTML = [1,2,3].map(i=>{
+    const p = wPremAgents[i-1], s = wPartAgents[i-1];
+    return `<tr>
+      <td style="color:var(--muted);font-weight:600">#${i}</td>
+      <td>${esc(p.name)}</td>
+      <td class="num ${p.score?scoreColor(n(p.score)):''}">${p.score?n(p.score)+'%':'—'}</td>
+      <td>${esc(s.name)}</td>
+      <td class="num ${s.score?scoreColor(n(s.score)):''}">${s.score?n(s.score)+'%':'—'}</td>
+    </tr>`;
+  }).join('');
 
   // Trend chart
   const weeks12 = [...new Set(allWeeks.map(r=>r.week_start))].sort().slice(-12);
