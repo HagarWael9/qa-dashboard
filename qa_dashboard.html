@@ -827,18 +827,26 @@ function renderMonthly(){
 
   const TL_LIST = ['Radwa Aly','Mai Hussein','Karim Farrag'];
   const tlDisputeKpis = TL_LIST.map(tl => {
-    const tlRows = monthDisputes.filter(r=>r.supervisor===tl);
+    const tlRows  = monthDisputes.filter(r=>r.supervisor===tl);
     if(!tlRows.length) return kpiCard(tl+' — TL SLA','—','no disputes this month');
-    const tlHrs  = tlRows.filter(r=>r.tl_reply_hours!==''&&r.tl_reply_hours!=='n/a').map(r=>parseFloat(r.tl_reply_hours)||0);
-    const tlBr   = tlRows.filter(r=>r.tl_within_sla==='no').length;
-    const avgHrs = tlHrs.length?(tlHrs.reduce((a,b)=>a+b,0)/tlHrs.length):null;
+    const tlHrs   = tlRows.filter(r=>r.tl_reply_hours!==''&&r.tl_reply_hours!=='n/a'&&r.tl_reply_hours!=='pending').map(r=>parseFloat(r.tl_reply_hours)||0);
+    const tlBr    = tlRows.filter(r=>r.tl_within_sla==='no').length;
+    const avgHrs  = tlHrs.length?(tlHrs.reduce((a,b)=>a+b,0)/tlHrs.length):null;
+    const tlAppr  = tlRows.filter(r=>r.tl_decision==='approved').length;
+    const tlRej   = tlRows.filter(r=>r.tl_decision==='rejected').length;
     return kpiCard(
-      tl+' — TL SLA',
+      tl,
       avgHrs!==null?avgHrs.toFixed(1)+'h avg':'pending',
-      tlBr+' breach'+(tlBr!==1?'es':'')+' · '+tlRows.length+' disputes',
+      tlBr+' breach'+(tlBr!==1?'es':'')+' · '+tlAppr+' approved · '+tlRej+' rejected',
       avgHrs!==null&&avgHrs<=48?'good':'warn'
     );
   }).join('');
+
+  // Overall TL SLA for monthly
+  const allMonthTlHrs = monthDisputes.filter(r=>r.tl_reply_hours!==''&&r.tl_reply_hours!=='n/a'&&r.tl_reply_hours!=='pending').map(r=>parseFloat(r.tl_reply_hours)||0);
+  const allMonthTlAvg = allMonthTlHrs.length ? allMonthTlHrs.reduce((a,b)=>a+b,0)/allMonthTlHrs.length : null;
+  const allMonthTlBr  = monthDisputes.filter(r=>r.tl_within_sla==='no').length;
+  const overallTlKpi  = kpiCard('Overall TL SLA', allMonthTlAvg!==null?allMonthTlAvg.toFixed(1)+'h avg':'pending', allMonthTlBr+' breaches · target 48h', allMonthTlAvg!==null&&allMonthTlAvg<=48?'good':'warn');
 
   // Omar overall
   const omarDisp  = monthDisputes.filter(r=>r.tl_decision==='approved');
@@ -858,8 +866,8 @@ function renderMonthly(){
 
   document.getElementById('mDisputeKpis').innerHTML =
     dispKpis +
-    '<div class="section-hdr" style="margin:16px 0 10px">SLA per Team Lead <span style="color:var(--muted);font-size:10px;text-transform:none;letter-spacing:0">48h target · from submission to first TL reply</span></div>' +
-    '<div class="kpi-row">'+tlDisputeKpis+'</div>';
+    '<div class="section-hdr" style="margin:16px 0 10px">SLA per Team Lead <span style="color:var(--muted);font-size:10px;text-transform:none;letter-spacing:0">48h target · approved & rejected counts</span></div>' +
+    '<div class="kpi-row">'+overallTlKpi+tlDisputeKpis+'</div>';
 }
 
 // ── DISPUTES ───────────────────────────────────────────────────────────
@@ -881,27 +889,71 @@ function renderDisputes(){
   const approved    = omarRows.filter(r=>r.omar_decision==='approved').length;
   const rejected    = omarRows.filter(r=>r.omar_decision==='rejected').length;
 
-  // Per-TL SLA breakdown
   const TLS = ['Radwa Aly','Mai Hussein','Karim Farrag'];
-  const tlKpis = TLS.map(tl => {
-    const tlRows = rows.filter(r=>r.supervisor===tl);
-    if(!tlRows.length) return '';
-    const tlHrs   = tlRows.filter(r=>r.tl_reply_hours!==''&&r.tl_reply_hours!=='n/a').map(r=>parseFloat(r.tl_reply_hours)||0);
-    const tlBr    = tlRows.filter(r=>r.tl_within_sla==='no').length;
-    const avgHrs  = tlHrs.length ? (tlHrs.reduce((a,b)=>a+b,0)/tlHrs.length) : null;
-    return kpiCard(
-      tl + ' — TL SLA',
-      avgHrs!==null ? avgHrs.toFixed(1)+'h avg' : 'pending',
-      tlBr+' breach'+(tlBr!==1?'es':'')+' of '+tlRows.length+' disputes',
-      avgHrs!==null&&avgHrs<=48?'good':'warn'
-    );
-  }).join('');
+
+  // Overall TL SLA across all TLs
+  const allTlHrs = rows.filter(r=>r.tl_reply_hours!==''&&r.tl_reply_hours!=='n/a'&&r.tl_reply_hours!=='pending').map(r=>parseFloat(r.tl_reply_hours)||0);
+  const allTlAvg = allTlHrs.length ? allTlHrs.reduce((a,b)=>a+b,0)/allTlHrs.length : null;
+  const allTlBr  = rows.filter(r=>r.tl_within_sla==='no').length;
 
   document.getElementById('dispKpis').innerHTML=[
     kpiCard('Total Disputes', total, 'selected filters'),
-    kpiCard('Omar SLA Breaches', omarBreaches, omarBreaches?'⚠ exceeded 48h':'✓ all within 48h', omarBreaches?'warn':'good'),
+    kpiCard('Overall TL Avg Response', allTlAvg!==null?allTlAvg.toFixed(1)+'h':'pending', allTlBr+' breach'+(allTlBr!==1?'es':'')+' · target 48h', allTlAvg!==null&&allTlAvg<=48?'good':'warn'),
+    kpiCard('Omar SLA Breaches', omarBreaches, omarBreaches?'⚠ exceeded 48h':'✓ within 48h', omarBreaches?'warn':'good'),
     kpiCard('Outcomes (Omar)', approved+' approved / '+rejected+' rejected', omarRows.length+' reached Omar'),
-  ].join('') + (tlKpis ? '<div class="section-hdr" style="margin:16px 0 10px">SLA per Team Lead</div><div class="kpi-row">'+tlKpis+'</div>' : '');
+  ].join('');
+
+  // Per-TL breakdown table
+  const tlTableRows = TLS.map(tl => {
+    const tlRows    = rows.filter(r=>r.supervisor===tl);
+    if(!tlRows.length) return '';
+    const tlHrs     = tlRows.filter(r=>r.tl_reply_hours!==''&&r.tl_reply_hours!=='n/a'&&r.tl_reply_hours!=='pending').map(r=>parseFloat(r.tl_reply_hours)||0);
+    const tlBr      = tlRows.filter(r=>r.tl_within_sla==='no').length;
+    const avgHrs    = tlHrs.length ? tlHrs.reduce((a,b)=>a+b,0)/tlHrs.length : null;
+    const tlApprRows= tlRows.filter(r=>r.tl_decision==='approved');
+    const tlRejRows = tlRows.filter(r=>r.tl_decision==='rejected');
+    const slaClass  = avgHrs!==null ? (avgHrs<=48?'good':'bad') : '';
+    return `<tr>
+      <td><strong>${esc(tl)}</strong></td>
+      <td class="num">${tlRows.length}</td>
+      <td class="num ${slaClass}">${avgHrs!==null?avgHrs.toFixed(1)+'h':'—'}</td>
+      <td class="num ${tlBr?'bad':'good'}">${tlBr}</td>
+      <td class="num good">${tlApprRows.length}</td>
+      <td class="num bad">${tlRejRows.length}</td>
+      <td class="num" style="color:var(--muted)">${tlRows.length?(tlApprRows.length/tlRows.length*100).toFixed(0)+'% approved':''}</td>
+    </tr>`;
+  }).join('');
+
+  const tlSection = tlTableRows ? `
+    <div class="panel" style="margin-top:16px">
+      <h3>Per Team Lead breakdown</h3>
+      <div class="cap">SLA performance and dispute decisions per TL · 48h target</div>
+      <table>
+        <thead><tr>
+          <th>Team Lead</th>
+          <th class="num">Disputes</th>
+          <th class="num">Avg Response</th>
+          <th class="num">SLA Breaches</th>
+          <th class="num">Approved</th>
+          <th class="num">Rejected</th>
+          <th class="num">Approval Rate</th>
+        </tr></thead>
+        <tbody>${tlTableRows}</tbody>
+      </table>
+    </div>` : '';
+
+  // Insert TL table after the disputes ticket table
+  setTimeout(()=>{
+    const existing = document.getElementById('dispTLTable');
+    if(!existing){
+      const div = document.createElement('div');
+      div.id = 'dispTLTable';
+      div.innerHTML = tlSection;
+      document.getElementById('dispBody').closest('.panel').after(div);
+    } else {
+      existing.innerHTML = tlSection;
+    }
+  }, 0);
 
   document.getElementById('dispBody').innerHTML = rows.map(r=>`
     <tr>
