@@ -1147,8 +1147,8 @@ function renderFailedQ(){
   destroyChart('fqAgent');
   charts.fqAgent=new Chart(document.getElementById('fqAgentChart'),{
     type:'bar',
-    data:{ labels:agList.map(a=>a[0].split(' ')[0]), datasets:[{ label:'Fails', data:agList.map(a=>a[1]), backgroundColor:cssVar('--red'), borderRadius:4 }] },
-    options:{ indexAxis:'y', plugins:{legend:{display:false}}, scales:{ x:{ticks:{color:cssVar('--muted')},grid:{color:cssVar('--border')},beginAtZero:true}, y:{ticks:{color:cssVar('--muted'),font:{size:11}},grid:{display:false}} } }
+    data:{ labels:agList.map(a=>a[0]), datasets:[{ label:'Fails', data:agList.map(a=>a[1]), backgroundColor:cssVar('--red'), borderRadius:4 }] },
+    options:{ indexAxis:'y', plugins:{legend:{display:false}}, scales:{ x:{ticks:{color:cssVar('--muted')},grid:{color:cssVar('--border')},beginAtZero:true}, y:{ticks:{color:cssVar('--muted'),font:{size:10}},grid:{display:false}} } }
   });
 
   // WoW table
