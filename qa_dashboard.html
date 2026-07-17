@@ -385,11 +385,32 @@ td.bad  { color: var(--red); }
               <th>Ticket</th><th>Agent</th><th>Team</th>
               <th class="num">TL Hours</th><th>TL SLA</th><th>TL Decision</th>
               <th class="num">Omar Hours</th><th>Omar SLA</th><th>Omar Decision</th>
-              <th>Status</th>
+              <th>Disputed Questions</th><th>Status</th>
             </tr>
           </thead>
           <tbody id="dispBody"></tbody>
         </table>
+      </div>
+
+      <div class="grid2e" style="margin-top:16px">
+        <div class="panel">
+          <h3>Most disputed questions</h3>
+          <div class="cap">Ranked by total dispute count across all tickets</div>
+          <table>
+            <thead><tr><th>Question</th><th class="num">Disputes</th><th class="num">Approved</th><th class="num">Rejected</th></tr></thead>
+            <tbody id="dispQBody"></tbody>
+          </table>
+        </div>
+        <div class="panel">
+          <h3>Disputed questions per agent</h3>
+          <div class="cap">Total disputed question instances per agent</div>
+          <table>
+            <thead><tr><th>Agent</th><th>Team</th><th class="num">Disputes</th><th>Questions</th></tr></thead>
+            <tbody id="dispAgentQBody"></tbody>
+          </table>
+        </div>
+      </div>
+      <div id="dispTLTable"></div>
       </div>
     </div>
 
@@ -966,8 +987,50 @@ function renderDisputes(){
       <td class="num ${r.omar_hours>48?'bad':r.omar_hours&&r.omar_hours!='n/a'?'good':''}">${r.omar_hours||'—'}</td>
       <td>${badge(r.omar_within_sla)}</td>
       <td><span style="text-transform:capitalize">${esc(r.omar_decision||'—')}</span></td>
+      <td style="font-size:11px;color:var(--muted);max-width:200px">${esc(r.disputed_questions||'—')}</td>
       <td><span style="text-transform:capitalize;color:var(--muted)">${esc(r.status||'')}</span></td>
-    </tr>`).join('')||'<tr><td colspan="10" style="color:var(--muted)">No disputes found</td></tr>';
+    </tr>`).join('')||'<tr><td colspan="11" style="color:var(--muted)">No disputes found</td></tr>';
+
+  // Most disputed questions
+  const qMap = {};
+  rows.forEach(r => {
+    if(!r.disputed_questions) return;
+    const qs = String(r.disputed_questions).split('|').map(q=>q.trim()).filter(Boolean);
+    qs.forEach(q => {
+      if(!qMap[q]) qMap[q] = { count:0, approved:0, rejected:0 };
+      qMap[q].count++;
+      if(r.omar_decision==='approved') qMap[q].approved++;
+      if(r.omar_decision==='rejected') qMap[q].rejected++;
+      // Also count TL-only rejections
+      if(r.tl_decision==='rejected') qMap[q].rejected++;
+    });
+  });
+  const sortedQ = Object.entries(qMap).sort((a,b)=>b[1].count-a[1].count);
+  document.getElementById('dispQBody').innerHTML = sortedQ.map(([q,v])=>`
+    <tr>
+      <td style="font-size:12px">${esc(q)}</td>
+      <td class="num">${v.count}</td>
+      <td class="num good">${v.approved}</td>
+      <td class="num bad">${v.rejected}</td>
+    </tr>`).join('')||'<tr><td colspan="4" style="color:var(--muted)">No disputed questions data</td></tr>';
+
+  // Disputed questions per agent
+  const agentQMap = {};
+  rows.forEach(r => {
+    const nm = r.agent_name||r.agent_email||'';
+    if(!nm || !r.disputed_questions) return;
+    if(!agentQMap[nm]) agentQMap[nm] = { team:r.team, count:0, questions:new Set() };
+    const qs = String(r.disputed_questions).split('|').map(q=>q.trim()).filter(Boolean);
+    qs.forEach(q => { agentQMap[nm].questions.add(q); agentQMap[nm].count++; });
+  });
+  const sortedAgents = Object.entries(agentQMap).sort((a,b)=>b[1].count-a[1].count);
+  document.getElementById('dispAgentQBody').innerHTML = sortedAgents.map(([nm,v])=>`
+    <tr>
+      <td>${esc(nm)}</td>
+      <td><span style="color:${v.team==='Premium Support'?'var(--premium)':'var(--partner)'}">●</span> ${esc((v.team||'').replace(' Support',''))}</td>
+      <td class="num">${v.count}</td>
+      <td style="font-size:11px;color:var(--muted)">${[...v.questions].join(', ')}</td>
+    </tr>`).join('')||'<tr><td colspan="4" style="color:var(--muted)">No data</td></tr>';
 }
 
 // ── FAILED QUESTIONS ───────────────────────────────────────────────────
