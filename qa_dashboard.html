@@ -61,7 +61,7 @@ a { color: inherit; text-decoration: none; }
   border-right: 1px solid var(--border); padding: 24px 0;
   position: sticky; top: 0; height: 100vh; overflow-y: auto;
 }
-.main { flex: 1; min-width: 0; padding: 28px 32px 80px; }
+.main { flex: 1; min-width: 0; padding: 28px 32px 80px; overflow-y: auto; height: 100vh; }
 
 /* ── SIDEBAR ── */
 .logo {
@@ -654,6 +654,9 @@ function showView(v){
   document.querySelectorAll('.nav-item').forEach(el=>el.classList.remove('active'));
   document.getElementById('view-'+v).classList.add('active');
   document.getElementById('nav-'+v).classList.add('active');
+  // Scroll main content to top when switching views
+  document.querySelector('.main').scrollTo(0, 0);
+  window.scrollTo(0, 0);
 }
 
 // ── HELPERS ────────────────────────────────────────────────────────────
