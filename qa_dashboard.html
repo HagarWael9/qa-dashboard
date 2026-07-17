@@ -283,6 +283,12 @@ td.bad  { color: var(--red); }
         </table>
       </div>
 
+      <div class="panel" style="margin-bottom:16px">
+        <h3>Premium vs Standard — lowest scoring agents comparison</h3>
+        <div class="cap">Side by side bottom 3 agents per team this week</div>
+        <canvas id="weekCompareChart"></canvas>
+      </div>
+
       <div class="grid2e">
         <div class="panel">
           <h3>Eval count by team</h3>
@@ -342,11 +348,7 @@ td.bad  { color: var(--red); }
         </div>
       </div>
 
-      <div class="panel" style="margin-bottom:16px">
-        <h3>Premium vs Standard — lowest scoring agents comparison</h3>
-        <div class="cap">Side by side bottom agents per team this month</div>
-        <canvas id="monthCompareChart"></canvas>
-      </div>
+
 
       <div class="section-hdr">Disputes & SLA</div>
       <div class="kpi-row" id="mDisputeKpis"></div>
@@ -620,9 +622,22 @@ function populateSelects(){
   const agentOpts = '<option value="ALL">All agents</option>' + agents.map(a=>`<option value="${esc(a)}">${esc(a)}</option>`).join('');
 
   document.getElementById('weekSelect').innerHTML = weeks.map(w=>`<option value="${w}">${w}</option>`).join('');
+
+  // Get months from all sources to ensure sections and failed_questions are covered
+  const allMonths = [...new Set([
+    ...RAW.monthly.map(r=>r.month),
+    ...RAW.failedQ.map(r=>r.month),
+    ...RAW.sections.map(r=>r.month)
+  ].filter(Boolean))];
+
   ['monthSelect','fqMonth','secMonth'].forEach(id=>{
-    document.getElementById(id).innerHTML = months.map(m=>`<option value="${m}">${m}</option>`).join('');
+    document.getElementById(id).innerHTML = allMonths.map(m=>`<option value="${esc(m)}">${esc(m)}</option>`).join('');
   });
+
+  // Debug log
+  console.log('RAW failedQ rows:', RAW.failedQ.length, 'sections:', RAW.sections.length);
+  if(RAW.failedQ.length) console.log('failedQ sample month:', RAW.failedQ[0].month);
+  if(RAW.sections.length) console.log('sections sample month:', RAW.sections[0].month);
   ['dispAgent','fqAgent'].forEach(id=>{
     const el=document.getElementById(id);
     if(el) el.innerHTML=agentOpts;
@@ -704,6 +719,39 @@ function renderWeekly(){
       <td>${esc(v.sup)}</td>
       <td class="num ${scoreColor(v.score)}">${v.score}%</td>
     </tr>`).join('') || '<tr><td colspan="4" style="color:var(--muted)">No data</td></tr>';
+
+  // Premium vs Standard comparison chart
+  const wPremRow = allWeeks.find(r=>r.week_start===week&&r.team==='Premium Support'&&!r.supervisor)||{};
+  const wPartRow = allWeeks.find(r=>r.week_start===week&&r.team==='Standard Support'&&!r.supervisor)||{};
+  const wPremAgents = [], wPartAgents = [];
+  [wPremRow, wPartRow].forEach(row=>{
+    const isPrem = row.team==='Premium Support';
+    for(let i=1;i<=3;i++){
+      const nm=row['lowest_agent_'+i], sc=row['lowest_score_'+i];
+      if(nm&&sc) (isPrem?wPremAgents:wPartAgents).push({name:nm.split(' ')[0], score:n(sc)});
+    }
+  });
+  while(wPremAgents.length<3) wPremAgents.push({name:'—',score:null});
+  while(wPartAgents.length<3) wPartAgents.push({name:'—',score:null});
+  const wCmpLabels = wPremAgents.map((a,i)=>'#'+(i+1)+': '+a.name+' / '+(wPartAgents[i]?.name||'—'));
+  destroyChart('weekCompare');
+  charts.weekCompare = new Chart(document.getElementById('weekCompareChart'),{
+    type:'bar',
+    data:{
+      labels: wCmpLabels,
+      datasets:[
+        { label:'Premium', data:wPremAgents.map(a=>a.score), backgroundColor:cssVar('--premium'), borderRadius:5 },
+        { label:'Standard', data:wPartAgents.map(a=>a.score), backgroundColor:cssVar('--partner'), borderRadius:5 }
+      ]
+    },
+    options:{
+      plugins:{ legend:{ labels:{ color:cssVar('--text'), font:{size:11} } } },
+      scales:{
+        x:{ ticks:{ color:cssVar('--muted'), font:{size:11} }, grid:{display:false} },
+        y:{ ticks:{ color:cssVar('--muted') }, grid:{ color:cssVar('--border') }, min:50, max:100 }
+      }
+    }
+  });
 
   // Trend chart
   const weeks12 = [...new Set(allWeeks.map(r=>r.week_start))].sort().slice(-12);
@@ -801,46 +849,6 @@ function renderMonthly(){
   document.getElementById('outlierChips').innerHTML = outliers.length
     ? outliers.map(o=>`<span class="chip">${esc(o)}</span>`).join('')
     : '<span style="color:var(--muted);font-size:12px">No outliers this month ✓</span>';
-
-  // Premium vs Standard lowest agents comparison chart
-  const premAgents = [];
-  const partAgents = [];
-  [premRow, partRow].forEach(row => {
-    const isPreim = row.team === 'Premium Support';
-    for(let i=1;i<=3;i++){
-      const nm=row['lowest_agent_'+i], sc=row['lowest_score_'+i];
-      if(nm&&sc) (isPreim?premAgents:partAgents).push({name:nm.split(' ')[0], score:n(sc)});
-    }
-  });
-  // Pad to same length
-  while(premAgents.length < 3) premAgents.push({name:'', score:0});
-  while(partAgents.length < 3) partAgents.push({name:'', score:0});
-
-  const compareLabels = premAgents.map((a,i)=>{
-    const prem = a.name || '—';
-    const part = partAgents[i]?.name || '—';
-    return 'P'+( i+1)+': '+prem+' / '+part;
-  });
-
-  destroyChart('monthCompare');
-  charts.monthCompare = new Chart(document.getElementById('monthCompareChart'),{
-    type:'bar',
-    data:{
-      labels: compareLabels,
-      datasets:[
-        { label:'Premium Support', data:premAgents.map(a=>a.score||null), backgroundColor:cssVar('--premium'), borderRadius:5 },
-        { label:'Standard Support', data:partAgents.map(a=>a.score||null), backgroundColor:cssVar('--partner'), borderRadius:5 }
-      ]
-    },
-    options:{
-      plugins:{ legend:{ labels:{ color:cssVar('--text'), font:{size:11} } } },
-      scales:{
-        x:{ ticks:{ color:cssVar('--muted'), font:{size:10} }, grid:{display:false} },
-        y:{ ticks:{ color:cssVar('--muted') }, grid:{ color:cssVar('--border') }, min:50, max:100,
-            title:{ display:true, text:'Score %', color:cssVar('--muted'), font:{size:11} } }
-      }
-    }
-  });
 
   // Monthly trend chart
   const months6 = [...new Set(RAW.monthly.map(r=>r.month))].reverse();
