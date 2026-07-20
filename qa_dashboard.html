@@ -124,7 +124,8 @@ label.lbl {
 
 /* ── KPI GRID ── */
 .kpi-row { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; margin-bottom: 20px; }
-@media(max-width:1100px){ .kpi-row { grid-template-columns: repeat(2,1fr); } }
+.kpi-row.cols6 { grid-template-columns: repeat(6,1fr); }
+@media(max-width:1100px){ .kpi-row, .kpi-row.cols6 { grid-template-columns: repeat(2,1fr); } }
 .kpi {
   background: var(--surface); border: 1px solid var(--border);
   border-radius: 10px; padding: 16px 18px;
@@ -256,7 +257,7 @@ td.bad  { color: var(--red); }
         <button class="btn" onclick="renderWeekly()">Apply</button>
       </div>
 
-      <div class="kpi-row" id="wKpis"></div>
+      <div class="kpi-row cols6" id="wKpis"></div>
 
       <div class="grid2">
         <div class="panel">
@@ -393,11 +394,12 @@ td.bad  { color: var(--red); }
           </select>
         </span>
         <span><label class="lbl">Agent</label><select id="dispAgent"><option value="ALL">All agents</option></select></span>
-        <span><label class="lbl">Status</label>
-          <select id="dispStatus">
+        <span><label class="lbl">TL Decision</label>
+          <select id="dispTLDecision">
             <option value="ALL">All</option>
-            <option value="open">Open</option>
-            <option value="solved">Solved</option>
+            <option value="approved">Approved</option>
+            <option value="rejected">Rejected</option>
+            <option value="pending">Pending</option>
           </select>
         </span>
         <button class="btn" onclick="renderDisputes()">Apply</button>
@@ -414,7 +416,7 @@ td.bad  { color: var(--red); }
               <th>Ticket</th><th>Agent</th><th>Team</th>
               <th class="num">TL Hours</th><th>TL SLA</th><th>TL Decision</th>
               <th class="num">Omar Hours</th><th>Omar SLA</th><th>Omar Decision</th>
-              <th>Disputed Questions</th><th>Status</th>
+              <th>Disputed Questions</th>
             </tr>
           </thead>
           <tbody id="dispBody"></tbody>
@@ -724,7 +726,14 @@ function renderWeekly(){
 
   const premScore = n(premRow.avg_score_pct);
   const partScore = n(partRow.avg_score_pct);
+  const totalEvals = n(premRow.manual_eval_count,0) + n(partRow.manual_eval_count,0);
+  const overallAvg = totalEvals > 0
+    ? (premScore * n(premRow.manual_eval_count,0) + partScore * n(partRow.manual_eval_count,0)) / totalEvals
+    : 0;
+
   document.getElementById('wKpis').innerHTML = [
+    kpiCard('Total Evals This Week', totalEvals, 'Premium + Standard combined'),
+    kpiCard('Overall Avg Score', n(overallAvg,1)+'%', 'across both teams', overallAvg>=85?'good':overallAvg>=75?'warn':''),
     kpiCard('Manual Evals — Premium', n(premRow.manual_eval_count,0), 'this week','premium'),
     kpiCard('Avg Score — Premium', premScore+'%',
       'Target: 90% · '+(premScore>=90?'✓ on target':'⚠ '+(premScore-90).toFixed(1)+'% below target'),
@@ -993,13 +1002,13 @@ function renderMonthly(){
 // ── DISPUTES ───────────────────────────────────────────────────────────
 function renderDisputes(){
   const team   = document.getElementById('dispTeam').value;
-  const status = document.getElementById('dispStatus').value;
 
   const dispAgent = document.getElementById('dispAgent').value;
+  const tlDecision = document.getElementById('dispTLDecision').value;
   let rows = RAW.disputes;
-  if(team!=='ALL')      rows=rows.filter(r=>r.team===team);
-  if(dispAgent!=='ALL') rows=rows.filter(r=>(r.agent_name||r.agent_email)===dispAgent);
-  if(status!=='ALL')    rows=rows.filter(r=>String(r.status||'').toLowerCase()===status);
+  if(team!=='ALL')       rows=rows.filter(r=>r.team===team);
+  if(dispAgent!=='ALL')  rows=rows.filter(r=>(r.agent_name||r.agent_email)===dispAgent);
+  if(tlDecision!=='ALL') rows=rows.filter(r=>String(r.tl_decision||'').toLowerCase()===tlDecision);
   rows = [...rows].sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
 
   const total       = rows.length;
@@ -1087,8 +1096,7 @@ function renderDisputes(){
       <td>${badge(r.omar_within_sla)}</td>
       <td><span style="text-transform:capitalize">${esc(r.omar_decision||'—')}</span></td>
       <td style="font-size:11px;color:var(--muted);max-width:200px">${esc(r.disputed_questions||'—')}</td>
-      <td><span style="text-transform:capitalize;color:var(--muted)">${esc(r.status||'')}</span></td>
-    </tr>`).join('')||'<tr><td colspan="11" style="color:var(--muted)">No disputes found</td></tr>';
+    </tr>`).join('')||'<tr><td colspan="10" style="color:var(--muted)">No disputes found</td></tr>';
 
   // Most disputed questions
   const qMap = {};
