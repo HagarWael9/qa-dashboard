@@ -229,6 +229,7 @@ td.bad  { color: var(--red); }
       <div style="margin-top:6px;font-size:11px;color:var(--muted)" id="countdownTxt"></div>
       <button class="btn ghost" style="margin-top:10px;width:100%;font-size:11px" onclick="refreshNow()">↻ Refresh</button>
       <button class="theme-toggle" style="margin-top:8px;width:100%" onclick="toggleTheme()" id="themeBtn">☀ Light mode</button>
+      <button class="theme-toggle" style="margin-top:8px;width:100%" onclick="copyView()">📋 Copy for slides</button>
     </div>
   </nav>
 
@@ -1238,6 +1239,71 @@ function renderSections(){
 }
 
 // ── INIT ───────────────────────────────────────────────────────────────
+function copyView(){
+  // Collect all visible text content from the active view in a structured format
+  const view = document.querySelector('.view.active');
+  if(!view) return;
+
+  const title = view.querySelector('.page-title')?.textContent || '';
+  let text = '=== ' + title + ' ===
+';
+  text += new Date().toLocaleDateString('en-GB', {day:'2-digit',month:'short',year:'numeric'}) + '
+
+';
+
+  // KPI cards
+  view.querySelectorAll('.kpi').forEach(kpi => {
+    const lbl = kpi.querySelector('.lbl2')?.textContent?.trim() || '';
+    const val = kpi.querySelector('.val')?.textContent?.trim() || '';
+    const sub = kpi.querySelector('.sub2')?.textContent?.trim() || '';
+    if(lbl && val) text += lbl + ': ' + val + (sub ? ' (' + sub + ')' : '') + '
+';
+  });
+  text += '
+';
+
+  // Tables
+  view.querySelectorAll('table').forEach(table => {
+    const panel = table.closest('.panel');
+    const panelTitle = panel?.querySelector('h3')?.textContent?.trim() || '';
+    if(panelTitle) text += '--- ' + panelTitle + ' ---
+';
+
+    // Headers
+    const headers = [...table.querySelectorAll('th')].map(th => th.textContent.trim());
+    if(headers.length) text += headers.join('	') + '
+';
+
+    // Rows
+    table.querySelectorAll('tbody tr').forEach(tr => {
+      const cells = [...tr.querySelectorAll('td')].map(td => td.textContent.trim().replace(/\s+/g,' '));
+      if(cells.some(c=>c)) text += cells.join('	') + '
+';
+    });
+    text += '
+';
+  });
+
+  // Copy to clipboard
+  navigator.clipboard.writeText(text).then(()=>{
+    const btn = event.target;
+    const orig = btn.textContent;
+    btn.textContent = '✓ Copied!';
+    btn.style.background = 'var(--green)';
+    btn.style.color = '#fff';
+    setTimeout(()=>{ btn.textContent = orig; btn.style.background = ''; btn.style.color = ''; }, 2000);
+  }).catch(()=>{
+    // Fallback for browsers that block clipboard
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    alert('Copied to clipboard! Paste into PowerPoint or Google Slides.');
+  });
+}
+
 function toggleTheme(){
   const root = document.documentElement;
   const isLight = root.classList.toggle('light');
