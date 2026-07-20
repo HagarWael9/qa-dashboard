@@ -1240,59 +1240,97 @@ function renderSections(){
 
 // ── INIT ───────────────────────────────────────────────────────────────
 function copyView(){
-  // Collect all visible text content from the active view in a structured format
   const view = document.querySelector('.view.active');
   if(!view) return;
+  const title = view.querySelector('.page-title')?.textContent || 'QA Report';
+  const dateStr = new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
 
-  const title = view.querySelector('.page-title')?.textContent || '';
-  const NL = String.fromCharCode(10);
-  const TAB = String.fromCharCode(9);
-  let text = '=== ' + title + ' ===' + NL;
-  text += new Date().toLocaleDateString('en-GB', {day:'2-digit',month:'short',year:'numeric'}) + NL + NL;
+  // Build rich HTML for clipboard
+  let html = '<meta charset="utf-8">';
+  html += '<div style="font-family:Arial,sans-serif;max-width:900px;padding:16px">';
+  html += '<h2 style="margin:0 0 4px;color:#1a2035;font-size:20px">'+title+'</h2>';
+  html += '<p style="margin:0 0 16px;color:#7a859e;font-size:12px">'+dateStr+'</p>';
 
-  // KPI cards
-  view.querySelectorAll('.kpi').forEach(kpi => {
-    const lbl = kpi.querySelector('.lbl2')?.textContent?.trim() || '';
-    const val = kpi.querySelector('.val')?.textContent?.trim() || '';
-    const sub = kpi.querySelector('.sub2')?.textContent?.trim() || '';
-    if(lbl && val) text += lbl + ': ' + val + (sub ? ' (' + sub + ')' : '') + NL;
-  });
-  text += NL;
+  // KPI cards as a table row
+  const kpis = [...view.querySelectorAll('.kpi')];
+  if(kpis.length){
+    html += '<table style="width:100%;border-collapse:collapse;margin-bottom:20px">';
+    html += '<tr>';
+    kpis.forEach(kpi=>{
+      const lbl = kpi.querySelector('.lbl2')?.textContent?.trim()||'';
+      const val = kpi.querySelector('.val')?.textContent?.trim()||'';
+      const sub = kpi.querySelector('.sub2')?.textContent?.trim()||'';
+      const isGood = kpi.classList.contains('good');
+      const isWarn = kpi.classList.contains('warn');
+      const accent = isGood?'#1a9e5c':isWarn?'#d4820a':'#2f73e8';
+      html += '<td style="border:1px solid #dde2ef;border-top:3px solid '+accent+';padding:12px;vertical-align:top;min-width:120px">';
+      html += '<div style="font-size:10px;color:#7a859e;text-transform:uppercase;margin-bottom:6px">'+lbl+'</div>';
+      html += '<div style="font-size:22px;font-weight:600;color:#1a2035">'+val+'</div>';
+      if(sub) html += '<div style="font-size:10px;color:#7a859e;margin-top:4px">'+sub+'</div>';
+      html += '</td>';
+    });
+    html += '</tr></table>';
+  }
 
   // Tables
-  view.querySelectorAll('table').forEach(table => {
+  view.querySelectorAll('table').forEach(table=>{
     const panel = table.closest('.panel');
-    const panelTitle = panel?.querySelector('h3')?.textContent?.trim() || '';
-    if(panelTitle) text += '--- ' + panelTitle + ' ---' + NL;
+    const panelTitle = panel?.querySelector('h3')?.textContent?.trim()||'';
+    if(panelTitle) html += '<h3 style="font-size:13px;color:#1a2035;margin:16px 0 8px">'+panelTitle+'</h3>';
 
-    const headers = [...table.querySelectorAll('th')].map(th => th.textContent.trim());
-    if(headers.length) text += headers.join(TAB) + NL;
+    html += '<table style="width:100%;border-collapse:collapse;margin-bottom:16px;font-size:12px">';
 
-    table.querySelectorAll('tbody tr').forEach(tr => {
-      const cells = [...tr.querySelectorAll('td')].map(td => td.textContent.trim().replace(/[ 	]+/g,' '));
-      if(cells.some(c=>c)) text += cells.join(TAB) + NL;
+    // Headers
+    const ths = [...table.querySelectorAll('th')];
+    if(ths.length){
+      html += '<tr style="background:#f4f6fb">';
+      ths.forEach(th=>{
+        html += '<th style="text-align:left;padding:7px 10px;border-bottom:2px solid #dde2ef;color:#7a859e;font-size:10px;text-transform:uppercase;letter-spacing:.05em">'+th.textContent.trim()+'</th>';
+      });
+      html += '</tr>';
+    }
+
+    // Rows
+    table.querySelectorAll('tbody tr').forEach((tr,i)=>{
+      const bg = i%2===0?'#ffffff':'#f9fafd';
+      html += '<tr style="background:'+bg+'">';
+      [...tr.querySelectorAll('td')].forEach(td=>{
+        const txt = td.textContent.trim().replace(/\s+/g,' ');
+        const isGood = td.classList.contains('good');
+        const isBad  = td.classList.contains('bad');
+        const isWarn = td.classList.contains('warn');
+        const isNum  = td.classList.contains('num');
+        const color  = isGood?'#1a9e5c':isBad?'#d63f3f':isWarn?'#d4820a':'#1a2035';
+        html += '<td style="padding:7px 10px;border-bottom:1px solid #eef1f8;color:'+color+';'+(isNum?'text-align:right;font-family:monospace':'')+'">'+txt+'</td>';
+      });
+      html += '</tr>';
     });
-    text += NL;
+    html += '</table>';
   });
 
-  // Copy to clipboard
-  navigator.clipboard.writeText(text).then(()=>{
-    const btn = event.target;
-    const orig = btn.textContent;
-    btn.textContent = '✓ Copied!';
-    btn.style.background = 'var(--green)';
-    btn.style.color = '#fff';
-    setTimeout(()=>{ btn.textContent = orig; btn.style.background = ''; btn.style.color = ''; }, 2000);
-  }).catch(()=>{
-    // Fallback for browsers that block clipboard
-    const ta = document.createElement('textarea');
-    ta.value = text;
-    document.body.appendChild(ta);
-    ta.select();
-    document.execCommand('copy');
-    document.body.removeChild(ta);
-    alert('Copied to clipboard! Paste into PowerPoint or Google Slides.');
-  });
+  html += '</div>';
+
+  // Copy rich HTML to clipboard
+  const blob = new Blob([html], {type:'text/html'});
+  const plain = new Blob([title + ' - ' + dateStr], {type:'text/plain'});
+  try {
+    navigator.clipboard.write([new ClipboardItem({'text/html':blob,'text/plain':plain})]).then(()=>{
+      const btn = event.target;
+      const orig = btn.textContent;
+      btn.textContent = '✓ Copied!';
+      btn.style.background = 'var(--green)';
+      btn.style.color = '#fff';
+      setTimeout(()=>{ btn.textContent = orig; btn.style.background=''; btn.style.color=''; }, 2000);
+    });
+  } catch(e) {
+    // Fallback — open in new window to copy manually
+    const w = window.open('','_blank','width=950,height=700');
+    w.document.write('<html><body style="font-family:Arial">');
+    w.document.write('<p style="color:#666;font-size:12px">Select all (Ctrl+A / Cmd+A) then copy (Ctrl+C / Cmd+C), then paste into your slides</p>');
+    w.document.write(html);
+    w.document.write('</body></html>');
+    w.document.close();
+  }
 }
 
 function toggleTheme(){
