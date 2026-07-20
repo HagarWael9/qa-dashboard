@@ -6,6 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
 <style>
 :root {
   --bg:       #0e1117;
@@ -229,7 +230,7 @@ td.bad  { color: var(--red); }
       <div style="margin-top:6px;font-size:11px;color:var(--muted)" id="countdownTxt"></div>
       <button class="btn ghost" style="margin-top:10px;width:100%;font-size:11px" onclick="refreshNow()">↻ Refresh</button>
       <button class="theme-toggle" style="margin-top:8px;width:100%" onclick="toggleTheme()" id="themeBtn">☀ Light mode</button>
-      <button class="theme-toggle" style="margin-top:8px;width:100%" onclick="copyView()">📋 Copy for slides</button>
+      <button class="theme-toggle" style="margin-top:8px;width:100%;background:var(--blue);color:#fff;border-color:var(--blue)" onclick="generateSlides()" id="genBtn">📊 Generate Slides</button>
     </div>
   </nav>
 
@@ -1239,6 +1240,208 @@ function renderSections(){
 }
 
 // ── INIT ───────────────────────────────────────────────────────────────
+function generateSlides(){
+  const btn = document.getElementById('genBtn');
+  btn.textContent = '⏳ Generating...';
+  btn.disabled = true;
+
+  try {
+    const pres = new PptxGenJS();
+    pres.layout = 'LAYOUT_WIDE';
+    pres.title = 'QA Report — Property Finder';
+
+    const W = 13.3;
+    const C = {
+      bg:'0E1117', surface:'161B25', card:'1D2535', border:'252F42',
+      text:'E2E8F4', muted:'6B7A99', blue:'4F8EF7', green:'34D17A',
+      amber:'F5A623', red:'EF5B5B', premium:'4F8EF7', partner:'A78BFA', white:'FFFFFF'
+    };
+
+    function sc(score, target) {
+      const t = target||80;
+      return score>=t ? C.green : score>=(t*0.9) ? C.amber : C.red;
+    }
+
+    function addBg(slide) { slide.background = {color: C.bg}; }
+
+    function addTitle(slide, title, sub) {
+      slide.addText(title, {x:0.5,y:0.2,w:W-1,h:0.5,fontSize:24,bold:true,color:C.white,fontFace:'Arial'});
+      if(sub) slide.addText(sub, {x:0.5,y:0.68,w:W-1,h:0.22,fontSize:10,color:C.muted,fontFace:'Arial'});
+      slide.addShape(pres.ShapeType.rect, {x:0.5,y:0.88,w:W-1,h:0.01,fill:{color:C.border}});
+    }
+
+    function kpi(slide, x, y, w, h, label, value, sub, accent) {
+      const a = accent||C.blue;
+      slide.addShape(pres.ShapeType.rect, {x,y,w,h,fill:{color:C.surface},line:{color:C.border,width:1}});
+      slide.addShape(pres.ShapeType.rect, {x,y,w,h:0.04,fill:{color:a},line:{color:a,width:0}});
+      slide.addText(label.toUpperCase(), {x:x+0.12,y:y+0.08,w:w-0.24,h:0.18,fontSize:7,color:C.muted,fontFace:'Arial',bold:true,charSpacing:1});
+      slide.addText(value, {x:x+0.12,y:y+0.25,w:w-0.24,h:0.4,fontSize:20,bold:true,color:C.white,fontFace:'Courier New'});
+      if(sub) slide.addText(sub, {x:x+0.12,y:y+0.65,w:w-0.24,h:0.18,fontSize:7,color:C.muted,fontFace:'Arial'});
+    }
+
+    function tbl(slide, headers, rows, x, y, w, colW) {
+      const hRow = headers.map(h=>({text:h,options:{bold:true,color:C.muted,fontSize:8,fill:C.card,fontFace:'Arial'}}));
+      const dRows = rows.map((row,i)=>row.map(cell=>({
+        text: String(cell.text||cell||''),
+        options:{color:cell.color||C.text,fontSize:9,fill:i%2===0?C.surface:C.card,
+          align:cell.align||'left',fontFace:cell.mono?'Courier New':'Arial'}
+      })));
+      slide.addTable([hRow,...dRows],{x,y,w,colW:colW||headers.map(()=>w/headers.length),rowH:0.22,border:{color:C.border,pt:0.5}});
+    }
+
+    const wk = document.getElementById('weekSelect')?.value||'';
+    const mn = document.getElementById('monthSelect')?.value||'';
+    const today = new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+
+    // ── COVER ──
+    const cover = pres.addSlide();
+    addBg(cover);
+    cover.addShape(pres.ShapeType.rect,{x:0,y:2.6,w:W,h:2.2,fill:{color:C.surface}});
+    cover.addText('QA PERFORMANCE REPORT',{x:0.8,y:1.0,w:W-1.6,h:0.6,fontSize:30,bold:true,color:C.white,fontFace:'Arial',align:'center'});
+    cover.addText('Property Finder — Support Quality Assurance',{x:0.8,y:1.7,w:W-1.6,h:0.35,fontSize:13,color:C.muted,fontFace:'Arial',align:'center'});
+    cover.addText(wk||mn||today,{x:0.8,y:2.85,w:W-1.6,h:0.45,fontSize:16,bold:true,color:C.blue,fontFace:'Arial',align:'center'});
+    cover.addText('Premium Support  ·  Standard Support  ·  QA Disputes',{x:0.8,y:3.35,w:W-1.6,h:0.28,fontSize:10,color:C.muted,fontFace:'Arial',align:'center'});
+    cover.addText('Generated: '+today,{x:0.8,y:6.9,w:W-1.6,h:0.22,fontSize:8,color:C.muted,fontFace:'Arial',align:'center'});
+
+    // ── WEEKLY ──
+    const weekly = RAW.weekly;
+    if(weekly.length){
+      const ws = pres.addSlide(); addBg(ws);
+      addTitle(ws,'Weekly Evaluation Summary','Week: '+wk);
+      const prem = weekly.find(r=>r.week_start===wk&&r.team==='Premium Support'&&!r.supervisor)||{};
+      const part = weekly.find(r=>r.week_start===wk&&r.team==='Standard Support'&&!r.supervisor)||{};
+      const ps=n(prem.avg_score_pct), ss=n(part.avg_score_pct);
+      const te=n(prem.manual_eval_count,0)+n(part.manual_eval_count,0);
+      const oa=te>0?(ps*n(prem.manual_eval_count,0)+ss*n(part.manual_eval_count,0))/te:0;
+
+      const cw=2.8,ch=1.05,cy=1.05,gap=0.2;
+      const sx=(W-(4*cw+3*gap))/2;
+      kpi(ws,sx,cy,cw,ch,'Total Evals',String(te),'This week',C.blue);
+      kpi(ws,sx+cw+gap,cy,cw,ch,'Overall Avg',n(oa,1)+'%','Both teams',oa>=85?C.green:C.amber);
+      kpi(ws,sx+(cw+gap)*2,cy,cw,ch,'Premium Avg',ps+'%','Target: 90%',sc(ps,90));
+      kpi(ws,sx+(cw+gap)*3,cy,cw,ch,'Standard Avg',ss+'%','Target: 80%',sc(ss,80));
+
+      ws.addText('Scores per Team Lead',{x:0.5,y:2.3,w:W-1,h:0.25,fontSize:11,bold:true,color:C.white,fontFace:'Arial'});
+      const TLS=[{name:'Radwa Aly',team:'Premium Support',target:90},{name:'Mai Hussein',team:'Standard Support',target:80},{name:'Karim Farrag',team:'Standard Support',target:80}];
+      const tlRows=TLS.map(tl=>{
+        const r=weekly.find(w=>w.supervisor===tl.name&&w.week_start===wk)||{};
+        const score=n(r.avg_score_pct),ev=n(r.manual_eval_count,0);
+        const diff=score>0?(score-tl.target).toFixed(1):'—';
+        const ds=score>0?(score>=tl.target?'+'+diff+'%':diff+'%'):'—';
+        return [{text:tl.name,color:C.white},{text:tl.team.replace(' Support',''),color:tl.team==='Premium Support'?C.premium:C.partner},
+          {text:ev||'—',color:C.text,align:'right',mono:true},{text:score>0?score+'%':'—',color:sc(score,tl.target),align:'right',mono:true},
+          {text:tl.target+'%',color:C.muted,align:'right',mono:true},{text:ds,color:score>0?(score>=tl.target?C.green:C.red):C.muted,align:'right',mono:true}];
+      });
+      tbl(ws,['Team Lead','Team','Evals','Avg Score','Target','vs Target'],tlRows,0.5,2.55,W-1,[2.8,2.2,1.2,1.5,1.5,1.5]);
+
+      ws.addText('Premium vs Standard — Lowest Scoring Agents',{x:0.5,y:4.1,w:W-1,h:0.25,fontSize:11,bold:true,color:C.white,fontFace:'Arial'});
+      const pa=[],sa=[];
+      for(let i=1;i<=3;i++){
+        pa.push({name:prem['lowest_agent_'+i]||'—',score:n(prem['lowest_score_'+i])});
+        sa.push({name:part['lowest_agent_'+i]||'—',score:n(part['lowest_score_'+i])});
+      }
+      const cmpRows=[1,2,3].map(i=>[
+        {text:'#'+i,color:C.muted},
+        {text:pa[i-1].name,color:C.white},
+        {text:pa[i-1].score?pa[i-1].score+'%':'—',color:sc(pa[i-1].score,90),align:'right',mono:true},
+        {text:sa[i-1].name,color:C.white},
+        {text:sa[i-1].score?sa[i-1].score+'%':'—',color:sc(sa[i-1].score,80),align:'right',mono:true}
+      ]);
+      tbl(ws,['#','Premium Agent','Score','Standard Agent','Score'],cmpRows,0.5,4.38,W-1,[0.5,3.5,1.2,3.5,1.2]);
+    }
+
+    // ── MONTHLY ──
+    const monthly = RAW.monthly;
+    if(monthly.length){
+      const ms = pres.addSlide(); addBg(ms);
+      addTitle(ms,'Monthly Performance Overview',mn||'');
+      const prem=monthly.find(r=>r.month===mn&&r.team==='Premium Support')||{};
+      const part=monthly.find(r=>r.month===mn&&r.team==='Standard Support')||{};
+      const ps=n(prem.avg_score_pct),ss=n(part.avg_score_pct);
+      const te=n(prem.manual_eval_count,0)+n(part.manual_eval_count,0);
+      const oa=te>0?(ps*n(prem.manual_eval_count,0)+ss*n(part.manual_eval_count,0))/te:0;
+
+      const cw=2.8,ch=1.05,cy=1.05,gap=0.2;
+      const sx=(W-(4*cw+3*gap))/2;
+      kpi(ms,sx,cy,cw,ch,'Total Evals',String(te),mn,C.blue);
+      kpi(ms,sx+cw+gap,cy,cw,ch,'Overall Avg',n(oa,1)+'%','Both teams',oa>=85?C.green:C.amber);
+      kpi(ms,sx+(cw+gap)*2,cy,cw,ch,'Premium Avg',ps+'%','Target: 90%',sc(ps,90));
+      kpi(ms,sx+(cw+gap)*3,cy,cw,ch,'Standard Avg',ss+'%','Target: 80%',sc(ss,80));
+
+      // Outliers
+      const outliers=[];
+      [prem,part].forEach(r=>{if(r.outlier_agents)outliers.push(...String(r.outlier_agents).split(',').map(s=>s.trim()).filter(Boolean));});
+      if(outliers.length){
+        ms.addText('Outlier Agents (≥5% below 6-month avg):  '+outliers.join('  ·  '),
+          {x:0.5,y:2.28,w:W-1,h:0.25,fontSize:10,color:C.amber,fontFace:'Arial'});
+      }
+
+      // Lowest agents
+      ms.addText('Lowest Scoring Agents — Monthly Average',{x:0.5,y:2.62,w:W-1,h:0.25,fontSize:11,bold:true,color:C.white,fontFace:'Arial'});
+      const pa=[],sa=[];
+      for(let i=1;i<=3;i++){
+        pa.push({name:prem['lowest_agent_'+i]||'—',score:n(prem['lowest_score_'+i])});
+        sa.push({name:part['lowest_agent_'+i]||'—',score:n(part['lowest_score_'+i])});
+      }
+      const cmpRows=[1,2,3].map(i=>[
+        {text:'#'+i,color:C.muted},
+        {text:pa[i-1].name,color:C.white},
+        {text:pa[i-1].score?pa[i-1].score+'%':'—',color:sc(pa[i-1].score,90),align:'right',mono:true},
+        {text:sa[i-1].name,color:C.white},
+        {text:sa[i-1].score?sa[i-1].score+'%':'—',color:sc(sa[i-1].score,80),align:'right',mono:true}
+      ]);
+      tbl(ms,['#','Premium Agent','Score','Standard Agent','Score'],cmpRows,0.5,2.88,W-1,[0.5,3.5,1.2,3.5,1.2]);
+
+      // Disputes
+      ms.addText('Disputes & SLA Summary',{x:0.5,y:4.35,w:W-1,h:0.25,fontSize:11,bold:true,color:C.white,fontFace:'Arial'});
+      const dt=n(prem.disputes_total,0)+n(part.disputes_total,0);
+      const dpct=te>0?(dt/te*100).toFixed(1):0;
+      const tlAvg=((n(prem.tl_avg_reply_hours)+n(part.tl_avg_reply_hours))/2).toFixed(1);
+      const omAvg=((n(prem.omar_avg_hours)+n(part.omar_avg_hours))/2).toFixed(1);
+      const dw=2.9,dy=4.65,dh=0.9;
+      kpi(ms,0.5,dy,dw,dh,'Total Disputes',String(dt),dpct+'% of evals',C.amber);
+      kpi(ms,0.5+dw+0.2,dy,dw,dh,'TL Avg Response',tlAvg+'h','Target: 48h',parseFloat(tlAvg)<=48?C.green:C.red);
+      kpi(ms,0.5+(dw+0.2)*2,dy,dw,dh,'Omar Avg Response',omAvg+'h','Target: 48h',parseFloat(omAvg)<=48?C.green:C.red);
+      kpi(ms,0.5+(dw+0.2)*3,dy,dw,dh,'Omar Approved',n(prem.omar_approved_pct,1)+'% Prem',n(part.omar_approved_pct,1)+'% Std',C.green);
+
+      // TL SLA per TL
+      ms.addText('SLA per Team Lead',{x:0.5,y:5.7,w:W-1,h:0.22,fontSize:11,bold:true,color:C.white,fontFace:'Arial'});
+      const disputes=RAW.disputes.filter(r=>{
+        const d=new Date(r.created_at);
+        return d.toLocaleString('en-US',{month:'long',year:'numeric'})===mn;
+      });
+      const TLS=[{name:'Radwa Aly'},{name:'Mai Hussein'},{name:'Karim Farrag'}];
+      const tlDispRows=TLS.map(tl=>{
+        const tr=disputes.filter(r=>r.supervisor===tl.name);
+        const hrs=tr.filter(r=>r.tl_reply_hours&&r.tl_reply_hours!=='n/a'&&r.tl_reply_hours!=='pending').map(r=>parseFloat(r.tl_reply_hours)||0);
+        const avg=hrs.length?(hrs.reduce((a,b)=>a+b,0)/hrs.length).toFixed(1):null;
+        const br=tr.filter(r=>r.tl_within_sla==='no').length;
+        const appr=tr.filter(r=>r.tl_decision==='approved').length;
+        const rej=tr.filter(r=>r.tl_decision==='rejected').length;
+        return [{text:tl.name,color:C.white},{text:String(tr.length),color:C.text,align:'right',mono:true},
+          {text:avg?avg+'h':'—',color:avg?(parseFloat(avg)<=48?C.green:C.red):C.muted,align:'right',mono:true},
+          {text:String(br),color:br>0?C.red:C.green,align:'right',mono:true},
+          {text:String(appr),color:C.green,align:'right',mono:true},
+          {text:String(rej),color:C.red,align:'right',mono:true}];
+      });
+      tbl(ms,['Team Lead','Disputes','Avg Hrs','Breaches','Approved','Rejected'],tlDispRows,0.5,5.95,W-1,[3.0,1.8,1.8,1.8,1.8,1.8]);
+    }
+
+    // ── DOWNLOAD ──
+    const fname = 'QA_Report_' + (wk||mn||today).replace(/[^a-z0-9]/gi,'_') + '.pptx';
+    pres.writeFile({fileName: fname}).then(()=>{
+      btn.textContent = '✓ Downloaded!';
+      btn.style.background = 'var(--green)';
+      setTimeout(()=>{ btn.textContent='📊 Generate Slides'; btn.style.background='var(--blue)'; btn.disabled=false; }, 3000);
+    });
+
+  } catch(e) {
+    console.error(e);
+    btn.textContent = '✗ Error — check console';
+    btn.disabled = false;
+  }
+}
+
 function copyView(){
   const view = document.querySelector('.view.active');
   if(!view) return;
