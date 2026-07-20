@@ -1245,43 +1245,34 @@ function copyView(){
   if(!view) return;
 
   const title = view.querySelector('.page-title')?.textContent || '';
-  let text = '=== ' + title + ' ===
-';
-  text += new Date().toLocaleDateString('en-GB', {day:'2-digit',month:'short',year:'numeric'}) + '
-
-';
+  const NL = String.fromCharCode(10);
+  const TAB = String.fromCharCode(9);
+  let text = '=== ' + title + ' ===' + NL;
+  text += new Date().toLocaleDateString('en-GB', {day:'2-digit',month:'short',year:'numeric'}) + NL + NL;
 
   // KPI cards
   view.querySelectorAll('.kpi').forEach(kpi => {
     const lbl = kpi.querySelector('.lbl2')?.textContent?.trim() || '';
     const val = kpi.querySelector('.val')?.textContent?.trim() || '';
     const sub = kpi.querySelector('.sub2')?.textContent?.trim() || '';
-    if(lbl && val) text += lbl + ': ' + val + (sub ? ' (' + sub + ')' : '') + '
-';
+    if(lbl && val) text += lbl + ': ' + val + (sub ? ' (' + sub + ')' : '') + NL;
   });
-  text += '
-';
+  text += NL;
 
   // Tables
   view.querySelectorAll('table').forEach(table => {
     const panel = table.closest('.panel');
     const panelTitle = panel?.querySelector('h3')?.textContent?.trim() || '';
-    if(panelTitle) text += '--- ' + panelTitle + ' ---
-';
+    if(panelTitle) text += '--- ' + panelTitle + ' ---' + NL;
 
-    // Headers
     const headers = [...table.querySelectorAll('th')].map(th => th.textContent.trim());
-    if(headers.length) text += headers.join('	') + '
-';
+    if(headers.length) text += headers.join(TAB) + NL;
 
-    // Rows
     table.querySelectorAll('tbody tr').forEach(tr => {
-      const cells = [...tr.querySelectorAll('td')].map(td => td.textContent.trim().replace(/\s+/g,' '));
-      if(cells.some(c=>c)) text += cells.join('	') + '
-';
+      const cells = [...tr.querySelectorAll('td')].map(td => td.textContent.trim().replace(/[ 	]+/g,' '));
+      if(cells.some(c=>c)) text += cells.join(TAB) + NL;
     });
-    text += '
-';
+    text += NL;
   });
 
   // Copy to clipboard
