@@ -308,6 +308,10 @@ td.bad  { color: var(--red); }
         <h3>Fatal Fails & Coaching Delivery</h3>
         <div class="cap">Fatal question failures and coaching status this week</div>
         <div class="kpi-row" id="wCoachingKpis"></div>
+        <table style="margin-top:14px">
+          <thead><tr><th>Agent</th><th>Team</th><th>TL</th><th>Question</th><th>Section</th><th>Coaching</th></tr></thead>
+          <tbody id="wCoachBody"></tbody>
+        </table>
       </div>
 
 
@@ -379,6 +383,14 @@ td.bad  { color: var(--red); }
 
       <div class="section-hdr">Fatal Fails & Coaching</div>
       <div class="kpi-row" id="mCoachingKpis"></div>
+      <div class="panel" style="margin-bottom:16px">
+        <h3>Fatal fails & coaching status</h3>
+        <div class="cap">All fatal question failures this month with coaching delivery status</div>
+        <table>
+          <thead><tr><th>Agent</th><th>Team</th><th>TL</th><th>Event Date</th><th>Question</th><th>Section</th><th>Coaching</th></tr></thead>
+          <tbody id="mCoachBody"></tbody>
+        </table>
+      </div>
 
       <div class="section-hdr">Disputes & SLA</div>
       <div class="kpi-row" id="mDisputeKpis"></div>
@@ -913,6 +925,36 @@ function renderWeekly(){
     kpiCard('Pending', wCoachPend, 'not yet actioned', wCoachPend>0?'warn':'good'),
   ].join('');
 
+  // Coaching table for weekly
+  function coachBadgeW(v){
+    const s=String(v||'').toLowerCase();
+    if(s==='yes') return '<span class="badge yes">✓ Delivered</span>';
+    if(s==='no')  return '<span class="badge no">✗ Not Delivered</span>';
+    if(s==='scheduled') return '<span class="badge pending">📅 Scheduled</span>';
+    return '<span class="badge na">— Pending</span>';
+  }
+  const wCoachRows = RAW.coaching.filter(r=>{
+    const d = new Date(r.event_date);
+    const wStart = new Date(week);
+    const wEnd = new Date(allWeeks.find(x=>x.week_start===week)?.week_end||week);
+    wEnd.setHours(23,59,59);
+    return d>=wStart && d<=wEnd && (team==='ALL'||r.team===team);
+  });
+  document.getElementById('wCoachBody').innerHTML = wCoachRows.length
+    ? wCoachRows.sort((a,b)=>{
+        const o={'':0,'no':1,'scheduled':2,'yes':3};
+        return (o[String(a.coaching_delivered||'').toLowerCase()]||0)-(o[String(b.coaching_delivered||'').toLowerCase()]||0);
+      }).map(r=>`<tr>
+        <td><strong>${esc(r.agent_name||'—')}</strong></td>
+        <td><span style="color:${r.team==='Premium Support'?'var(--premium)':'var(--partner)'}">●</span> ${esc((r.team||'').replace(' Support',''))}</td>
+        <td style="color:var(--muted)">${esc(r.supervisor||'—')}</td>
+        <td style="color:var(--muted);font-family:'DM Mono',monospace;font-size:11px">${esc(String(r.event_date||'').substring(0,10))}</td>
+        <td style="font-size:12px">${esc(r.question_name||'—')}</td>
+        <td style="color:var(--muted)">${esc(r.section_name||'—')}</td>
+        <td>${coachBadgeW(r.coaching_delivered)}</td>
+      </tr>`).join('')
+    : '<tr><td colspan="7" style="color:var(--muted)">No fatal fails this week</td></tr>';
+
   document.getElementById('footerNote').textContent = 'Week: '+week+' → '+(allWeeks.find(r=>r.week_start===week)||{}).week_end+' · Last loaded '+new Date().toLocaleString();
 }
 
@@ -1010,6 +1052,35 @@ function renderMonthly(){
     kpiCard('Scheduled', mCoachSch, 'upcoming sessions', ''),
     kpiCard('Pending', mCoachPend, 'not yet actioned', mCoachPend>0?'warn':'good'),
   ].join('');
+
+  // Coaching table for monthly
+  function coachBadgeM(v){
+    const s=String(v||'').toLowerCase();
+    if(s==='yes') return '<span class="badge yes">✓ Delivered</span>';
+    if(s==='no')  return '<span class="badge no">✗ Not Delivered</span>';
+    if(s==='scheduled') return '<span class="badge pending">📅 Scheduled</span>';
+    return '<span class="badge na">— Pending</span>';
+  }
+  const mCoachRows = RAW.coaching.filter(r=>{
+    if(!r.event_date) return false;
+    const d = new Date(r.event_date);
+    const label = d.toLocaleString('en-US',{month:'long',year:'numeric'});
+    return label===month && (team==='ALL'||r.team===team);
+  }).sort((a,b)=>{
+    const o={'':0,'no':1,'scheduled':2,'yes':3};
+    return (o[String(a.coaching_delivered||'').toLowerCase()]||0)-(o[String(b.coaching_delivered||'').toLowerCase()]||0);
+  });
+  document.getElementById('mCoachBody').innerHTML = mCoachRows.length
+    ? mCoachRows.map(r=>`<tr>
+        <td><strong>${esc(r.agent_name||'—')}</strong></td>
+        <td><span style="color:${r.team==='Premium Support'?'var(--premium)':'var(--partner)'}">●</span> ${esc((r.team||'').replace(' Support',''))}</td>
+        <td style="color:var(--muted)">${esc(r.supervisor||'—')}</td>
+        <td style="color:var(--muted);font-family:'DM Mono',monospace;font-size:11px">${esc(String(r.event_date||'').substring(0,10))}</td>
+        <td style="font-size:12px">${esc(r.question_name||'—')}</td>
+        <td style="color:var(--muted)">${esc(r.section_name||'—')}</td>
+        <td>${coachBadgeM(r.coaching_delivered)}</td>
+      </tr>`).join('')
+    : '<tr><td colspan="7" style="color:var(--muted)">No fatal fails this month</td></tr>';
 
   // Premium vs Standard monthly comparison table
   const mPremAgents = [], mPartAgents = [];
