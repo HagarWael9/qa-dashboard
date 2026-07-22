@@ -221,6 +221,7 @@ td.bad  { color: var(--red); }
     <a class="nav-item" onclick="showView('disputes')" id="nav-disputes">Disputes & SLA</a>
     <a class="nav-item" onclick="showView('questions')" id="nav-questions">Failed Questions</a>
     <a class="nav-item" onclick="showView('sections')" id="nav-sections">Section Scores</a>
+    <a class="nav-item" onclick="showView('coaching')" id="nav-coaching">Coaching Tracker</a>
     <div class="nav-section">Sync</div>
     <div style="padding:10px 20px">
       <div class="status-bar">
@@ -544,15 +545,63 @@ td.bad  { color: var(--red); }
       </div>
     </div>
 
+    <!-- ═══ COACHING VIEW ═══ -->
+    <div class="view" id="view-coaching">
+      <div class="topbar">
+        <div>
+          <h1 class="page-title">Coaching Tracker</h1>
+          <div class="page-sub">Fatal question failures · coaching delivery status per agent</div>
+        </div>
+      </div>
+
+      <div class="filters">
+        <span><label class="lbl">Team</label>
+          <select id="coachTeam">
+            <option value="ALL">All teams</option>
+            <option value="Premium Support">Premium Support</option>
+            <option value="Standard Support">Standard Support</option>
+          </select>
+        </span>
+        <span><label class="lbl">Status</label>
+          <select id="coachStatus">
+            <option value="ALL">All</option>
+            <option value="Yes">Delivered</option>
+            <option value="No">Not Delivered</option>
+            <option value="Scheduled">Scheduled</option>
+            <option value="">Pending</option>
+          </select>
+        </span>
+        <span><label class="lbl">Agent</label><select id="coachAgent"><option value="ALL">All agents</option></select></span>
+        <button class="btn" onclick="renderCoaching()">Apply</button>
+      </div>
+
+      <div class="kpi-row" id="coachKpis"></div>
+
+      <div class="panel" style="margin-top:16px">
+        <h3>Fatal fails & coaching status</h3>
+        <div class="cap">One row per fatal question failure — update coaching_delivered in the Google Sheet</div>
+        <table>
+          <thead>
+            <tr>
+              <th>Agent</th><th>Team</th><th>TL</th>
+              <th>Event Date</th><th>Question</th><th>Section</th>
+              <th>Coaching</th>
+            </tr>
+          </thead>
+          <tbody id="coachBody"></tbody>
+        </table>
+      </div>
+    </div>
+
     <div class="footer" id="footerNote"></div>
   </main>
 </div>
 
 <script>
 const SHEET_ID = "1RMaHdOG6FTd-d74UwCAW35nXFpEd99q5q_LG-G8B_fA";
-const TABS = ["weekly_report","monthly_report","disputes","failed_questions","section_scores"];
+const TABS = ["weekly_report","monthly_report","disputes","failed_questions","section_scores","coaching"];
 
-let RAW = { weekly:[], monthly:[], disputes:[], failedQ:[], sections:[] };
+let RAW = { weekly:[], monthly:[], disputes:[], failedQ:[], sections:[], coaching:[] };
 let charts = {};
 
 // ── FETCH ──────────────────────────────────────────────────────────────
@@ -617,14 +666,15 @@ async function loadAll(){
   setStatus('loading','loading…');
   document.getElementById('errorArea').innerHTML='';
   try{
-    const [w,m,d,fq,s] = await Promise.all(TABS.map(t=>fetchTab(t)));
-    RAW.weekly=w; RAW.monthly=m; RAW.disputes=d; RAW.failedQ=fq; RAW.sections=s;
+    const [w,m,d,fq,s,co] = await Promise.all(TABS.map(t=>fetchTab(t)));
+    RAW.weekly=w; RAW.monthly=m; RAW.disputes=d; RAW.failedQ=fq; RAW.sections=s; RAW.coaching=co;
     populateSelects();
     renderWeekly();
     renderMonthly();
     renderDisputes();
     renderFailedQ();
     renderSections();
+    renderCoaching();
     setStatus('ok','live · '+new Date().toLocaleTimeString());
     scheduleRefresh();
   }catch(e){
@@ -683,6 +733,10 @@ function populateSelects(){
   console.log('RAW failedQ rows:', RAW.failedQ.length, 'sections:', RAW.sections.length);
   if(RAW.failedQ.length) console.log('failedQ sample month:', RAW.failedQ[0].month);
   if(RAW.sections.length) console.log('sections sample month:', RAW.sections[0].month);
+  // Coaching agent dropdown
+  const coachAgentEl = document.getElementById('coachAgent');
+  if(coachAgentEl) coachAgentEl.innerHTML = agentOpts;
+
   ['dispAgent','fqAgent'].forEach(id=>{
     const el=document.getElementById(id);
     if(el) el.innerHTML=agentOpts;
@@ -1576,6 +1630,63 @@ function copyView(){
     w.document.write('</body></html>');
     w.document.close();
   }
+}
+
+function renderCoaching(){
+  const team   = document.getElementById('coachTeam').value;
+  const status = document.getElementById('coachStatus').value;
+  const agent  = document.getElementById('coachAgent').value;
+
+  let rows = RAW.coaching;
+  if(team!=='ALL')   rows = rows.filter(r=>r.team===team);
+  if(agent!=='ALL')  rows = rows.filter(r=>r.agent_name===agent);
+  if(status!=='ALL') rows = rows.filter(r=>{
+    if(status==='') return !r.coaching_delivered || r.coaching_delivered==='';
+    return String(r.coaching_delivered||'').toLowerCase()===status.toLowerCase();
+  });
+
+  // Sort: pending first, then no, then scheduled, then yes
+  const order = {'':0,'no':1,'scheduled':2,'yes':3};
+  rows = [...rows].sort((a,b)=>{
+    const ao = order[String(a.coaching_delivered||'').toLowerCase()]??0;
+    const bo = order[String(b.coaching_delivered||'').toLowerCase()]??0;
+    return ao-bo || String(a.agent_name).localeCompare(String(b.agent_name));
+  });
+
+  // KPIs
+  const total     = RAW.coaching.filter(r=>team==='ALL'||r.team===team).length;
+  const yes       = RAW.coaching.filter(r=>(team==='ALL'||r.team===team)&&String(r.coaching_delivered||'').toLowerCase()==='yes').length;
+  const no        = RAW.coaching.filter(r=>(team==='ALL'||r.team===team)&&String(r.coaching_delivered||'').toLowerCase()==='no').length;
+  const scheduled = RAW.coaching.filter(r=>(team==='ALL'||r.team===team)&&String(r.coaching_delivered||'').toLowerCase()==='scheduled').length;
+  const pending   = RAW.coaching.filter(r=>(team==='ALL'||r.team===team)&&(!r.coaching_delivered||r.coaching_delivered==='')).length;
+
+  document.getElementById('coachKpis').innerHTML = [
+    kpiCard('Total Fatal Fails', total, 'requires coaching'),
+    kpiCard('Coaching Delivered', yes, total?Math.round(yes/total*100)+'% complete':'', yes===total&&total>0?'good':yes>0?'warn':''),
+    kpiCard('Not Delivered', no, 'action needed', no>0?'warn':'good'),
+    kpiCard('Scheduled', scheduled, 'upcoming sessions'),
+    kpiCard('Pending', pending, 'not yet actioned', pending>0?'warn':'good'),
+  ].join('');
+
+  // Badge for coaching status
+  function coachBadge(v){
+    const s = String(v||'').toLowerCase();
+    if(s==='yes')       return '<span class="badge yes">✓ Delivered</span>';
+    if(s==='no')        return '<span class="badge no">✗ Not Delivered</span>';
+    if(s==='scheduled') return '<span class="badge pending">📅 Scheduled</span>';
+    return '<span class="badge na">— Pending</span>';
+  }
+
+  document.getElementById('coachBody').innerHTML = rows.map(r=>`
+    <tr>
+      <td><strong>${esc(r.agent_name||'—')}</strong></td>
+      <td><span style="color:${r.team==='Premium Support'?'var(--premium)':'var(--partner)'}">●</span> ${esc((r.team||'').replace(' Support',''))}</td>
+      <td style="color:var(--muted)">${esc(r.supervisor||'—')}</td>
+      <td style="color:var(--muted);font-family:'DM Mono',monospace;font-size:11px">${esc(String(r.event_date||'').substring(0,10))}</td>
+      <td style="font-size:12px">${esc(r.question_name||'—')}</td>
+      <td style="color:var(--muted)">${esc(r.section_name||'—')}</td>
+      <td>${coachBadge(r.coaching_delivered)}</td>
+    </tr>`).join('')||'<tr><td colspan="7" style="color:var(--muted)">No data</td></tr>';
 }
 
 function toggleTheme(){
