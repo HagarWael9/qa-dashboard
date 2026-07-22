@@ -304,6 +304,12 @@ td.bad  { color: var(--red); }
       </div>
 
       <div class="panel" style="margin-bottom:16px">
+        <h3>Fatal Fails & Coaching Delivery</h3>
+        <div class="cap">Fatal question failures and coaching status this week</div>
+        <div class="kpi-row" id="wCoachingKpis"></div>
+      </div>
+
+      <div class="panel" style="margin-bottom:16px">
         <h3>Score distribution</h3>
         <div class="cap">All agents in selected week — score spread</div>
         <canvas id="weekScoreDistChart"></canvas>
@@ -373,6 +379,9 @@ td.bad  { color: var(--red); }
           <tbody id="monthCompareBody"></tbody>
         </table>
       </div>
+
+      <div class="section-hdr">Fatal Fails & Coaching</div>
+      <div class="kpi-row" id="mCoachingKpis"></div>
 
       <div class="section-hdr">Disputes & SLA</div>
       <div class="kpi-row" id="mDisputeKpis"></div>
@@ -850,6 +859,23 @@ function renderWeekly(){
     </tr>`;
   }).join('');
 
+  // Coaching KPIs
+  const wCoachRow = allWeeks.find(r=>r.week_start===week&&r.team==='ALL')||{};
+  const wCoachPrem = allWeeks.find(r=>r.week_start===week&&r.team==='Premium Support'&&!r.supervisor)||{};
+  const wCoachPart = allWeeks.find(r=>r.week_start===week&&r.team==='Standard Support'&&!r.supervisor)||{};
+  const wFatalTotal = n(wCoachRow.fatal_fails_total||0,0) || (n(wCoachPrem.fatal_fails_total||0,0)+n(wCoachPart.fatal_fails_total||0,0));
+  const wCoachYes  = n(wCoachRow.coaching_yes||0,0) || (n(wCoachPrem.coaching_yes||0,0)+n(wCoachPart.coaching_yes||0,0));
+  const wCoachNo   = n(wCoachRow.coaching_no||0,0) || (n(wCoachPrem.coaching_no||0,0)+n(wCoachPart.coaching_no||0,0));
+  const wCoachSch  = n(wCoachRow.coaching_scheduled||0,0) || (n(wCoachPrem.coaching_scheduled||0,0)+n(wCoachPart.coaching_scheduled||0,0));
+  const wCoachPend = n(wCoachRow.coaching_pending||0,0) || (n(wCoachPrem.coaching_pending||0,0)+n(wCoachPart.coaching_pending||0,0));
+  document.getElementById('wCoachingKpis').innerHTML = [
+    kpiCard('Fatal Fails This Week', wFatalTotal, 'requires coaching'),
+    kpiCard('Coaching Delivered', wCoachYes, wFatalTotal?Math.round(wCoachYes/wFatalTotal*100)+'% of fails':'', wCoachYes===wFatalTotal&&wFatalTotal>0?'good':wCoachYes>0?'warn':''),
+    kpiCard('Not Yet Delivered', wCoachNo, 'action needed', wCoachNo>0?'warn':'good'),
+    kpiCard('Scheduled', wCoachSch, 'upcoming sessions', ''),
+    kpiCard('Pending', wCoachPend, 'not yet actioned', wCoachPend>0?'warn':'good'),
+  ].join('');
+
   document.getElementById('footerNote').textContent = 'Week: '+week+' → '+(allWeeks.find(r=>r.week_start===week)||{}).week_end+' · Last loaded '+new Date().toLocaleString();
 }
 
@@ -931,6 +957,22 @@ function renderMonthly(){
       <td style="color:var(--muted)">${esc(v.sup)}</td>
       <td class="num ${scoreColor(v.score, v.team==='Premium Support'?90:80)}">${v.score}%</td>
     </tr>`).join('')||'<tr><td colspan="4" style="color:var(--muted)">No data</td></tr>';
+
+  // Coaching KPIs for monthly
+  const mCoachPrem = RAW.monthly.find(r=>r.month===month&&r.team==='Premium Support')||{};
+  const mCoachPart = RAW.monthly.find(r=>r.month===month&&r.team==='Standard Support')||{};
+  const mFatalTotal = n(mCoachPrem.fatal_fails_total||0,0)+n(mCoachPart.fatal_fails_total||0,0);
+  const mCoachYes  = n(mCoachPrem.coaching_yes||0,0)+n(mCoachPart.coaching_yes||0,0);
+  const mCoachNo   = n(mCoachPrem.coaching_no||0,0)+n(mCoachPart.coaching_no||0,0);
+  const mCoachSch  = n(mCoachPrem.coaching_scheduled||0,0)+n(mCoachPart.coaching_scheduled||0,0);
+  const mCoachPend = n(mCoachPrem.coaching_pending||0,0)+n(mCoachPart.coaching_pending||0,0);
+  document.getElementById('mCoachingKpis').innerHTML = [
+    kpiCard('Fatal Fails This Month', mFatalTotal, 'requires coaching'),
+    kpiCard('Coaching Delivered', mCoachYes, mFatalTotal?Math.round(mCoachYes/mFatalTotal*100)+'% of fails':'', mCoachYes===mFatalTotal&&mFatalTotal>0?'good':mCoachYes>0?'warn':''),
+    kpiCard('Not Yet Delivered', mCoachNo, 'action needed', mCoachNo>0?'warn':'good'),
+    kpiCard('Scheduled', mCoachSch, 'upcoming sessions', ''),
+    kpiCard('Pending', mCoachPend, 'not yet actioned', mCoachPend>0?'warn':'good'),
+  ].join('');
 
   // Premium vs Standard monthly comparison table
   const mPremAgents = [], mPartAgents = [];
