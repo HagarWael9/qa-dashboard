@@ -783,6 +783,14 @@ function kpiCard(label,val,sub,accent){
 }
 function destroyChart(id){ if(charts[id]){ charts[id].destroy(); delete charts[id]; } }
 
+function parseCoachDate(v){
+  if(!v) return null;
+  const s = String(v).trim();
+  const parts = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if(parts) return new Date(parts[3]+'-'+parts[2].padStart(2,'0')+'-'+parts[1].padStart(2,'0'));
+  return new Date(s.substring(0,10));
+}
+
 // ── WEEKLY ─────────────────────────────────────────────────────────────
 function renderWeekly(){
   const week = document.getElementById('weekSelect').value;
@@ -911,13 +919,6 @@ function renderWeekly(){
   // wCoaching KPIs rendered after rows are built
 
   // Coaching table for weekly
-  function parseCoachDate(v){
-    if(!v) return null;
-    const s = String(v).trim();
-    const dmy = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
-    if(dmy) return new Date(dmy[3]+'-'+dmy[2].padStart(2,'0')+'-'+dmy[1].padStart(2,'0'));
-    return new Date(s.substring(0,10));
-  }
   function coachBadgeW(v){
     const s=String(v||'').toLowerCase();
     if(s==='yes') return '<span class="badge yes">✓ Delivered</span>';
