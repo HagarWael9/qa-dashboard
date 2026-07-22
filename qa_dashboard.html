@@ -926,6 +926,13 @@ function renderWeekly(){
   ].join('');
 
   // Coaching table for weekly
+  function parseCoachDate(v){
+    if(!v) return null;
+    const s = String(v).trim();
+    const dmy = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+    if(dmy) return new Date(dmy[3]+'-'+dmy[2].padStart(2,'0')+'-'+dmy[1].padStart(2,'0'));
+    return new Date(s.substring(0,10));
+  }
   function coachBadgeW(v){
     const s=String(v||'').toLowerCase();
     if(s==='yes') return '<span class="badge yes">✓ Delivered</span>';
@@ -933,12 +940,14 @@ function renderWeekly(){
     if(s==='scheduled') return '<span class="badge pending">📅 Scheduled</span>';
     return '<span class="badge na">— Pending</span>';
   }
+  const wEnd = allWeeks.find(x=>x.week_start===week);
+  const wStartDate = new Date(week);
+  const wEndDate = wEnd ? new Date(wEnd.week_end) : new Date(week);
+  wEndDate.setHours(23,59,59);
   const wCoachRows = RAW.coaching.filter(r=>{
-    const d = new Date(r.event_date);
-    const wStart = new Date(week);
-    const wEnd = new Date(allWeeks.find(x=>x.week_start===week)?.week_end||week);
-    wEnd.setHours(23,59,59);
-    return d>=wStart && d<=wEnd && (team==='ALL'||r.team===team);
+    const d = parseCoachDate(r.event_date);
+    if(!d||isNaN(d)) return false;
+    return d>=wStartDate && d<=wEndDate && (team==='ALL'||r.team===team);
   });
   document.getElementById('wCoachBody').innerHTML = wCoachRows.length
     ? wCoachRows.sort((a,b)=>{
@@ -1063,7 +1072,8 @@ function renderMonthly(){
   }
   const mCoachRows = RAW.coaching.filter(r=>{
     if(!r.event_date) return false;
-    const d = new Date(r.event_date);
+    const d = parseCoachDate(r.event_date);
+    if(!d||isNaN(d)) return false;
     const label = d.toLocaleString('en-US',{month:'long',year:'numeric'});
     return label===month && (team==='ALL'||r.team===team);
   }).sort((a,b)=>{
