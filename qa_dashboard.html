@@ -721,7 +721,13 @@ function populateSelects(){
       const dt = new Date(d);
       return dt.getDate().toString().padStart(2,'0') + ' ' + dt.toLocaleString('en-GB',{month:'short'}) + ' ' + dt.getFullYear();
     };
-    return end ? fmt(start) + ' → ' + fmt(end) : start;
+    if(!end) return start;
+    // Mark current week if end date is today or in the future
+    const endDate = new Date(end);
+    const today = new Date();
+    today.setHours(23,59,59,999);
+    const isCurrentWeek = endDate >= today && new Date(start) <= today;
+    return fmt(start) + ' → ' + fmt(end) + (isCurrentWeek ? ' (In Progress)' : '');
   }
 
   document.getElementById('weekSelect').innerHTML = weeks.map(w=>`<option value="${w}">${fmtWeekLabel(w, weekEndMap[w])}</option>`).join('');
