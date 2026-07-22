@@ -1460,8 +1460,11 @@ function generateSlides(){
     cover.addText('QA PERFORMANCE REPORT',{x:0.8,y:1.0,w:W-1.6,h:0.6,fontSize:30,bold:true,color:C.white,fontFace:'Arial',align:'center'});
     cover.addText('Property Finder — Support Quality Assurance',{x:0.8,y:1.7,w:W-1.6,h:0.35,fontSize:13,color:C.muted,fontFace:'Arial',align:'center'});
     cover.addText(wk||mn||today,{x:0.8,y:2.85,w:W-1.6,h:0.45,fontSize:16,bold:true,color:C.blue,fontFace:'Arial',align:'center'});
-    cover.addText('Premium Support  ·  Standard Support  ·  QA Disputes',{x:0.8,y:3.35,w:W-1.6,h:0.28,fontSize:10,color:C.muted,fontFace:'Arial',align:'center'});
+    cover.addText('Premium Support  ·  Standard Support  ·  QA Disputes  ·  Coaching',{x:0.8,y:3.35,w:W-1.6,h:0.28,fontSize:10,color:C.muted,fontFace:'Arial',align:'center'});
     cover.addText('Generated: '+today,{x:0.8,y:6.9,w:W-1.6,h:0.22,fontSize:8,color:C.muted,fontFace:'Arial',align:'center'});
+
+    // helper: parse coaching date
+    function pcd(v){if(!v)return null;const s=String(v).trim();const p=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);if(p)return new Date(p[3]+'-'+p[2].padStart(2,'0')+'-'+p[1].padStart(2,'0'));return new Date(s.substring(0,10));}
 
     // ── WEEKLY ──
     const weekly = RAW.weekly;
@@ -1585,6 +1588,216 @@ function generateSlides(){
           {text:String(rej),color:C.red,align:'right',mono:true}];
       });
       tbl(ms,['Team Lead','Disputes','Avg Hrs','Breaches','Approved','Rejected'],tlDispRows,0.5,5.95,W-1,[3.0,1.8,1.8,1.8,1.8,1.8]);
+    }
+
+    // ── SLIDE 4: FATAL FAILS & COACHING ──
+    const coaching = RAW.coaching;
+    if(coaching.length){
+      const cs = pres.addSlide(); addBg(cs);
+      addTitle(cs,'Fatal Fails & Coaching Tracker',mn||wk||'');
+
+      // Filter by month
+      const mCoach = coaching.filter(r=>{
+        const d=pcd(r.event_date); if(!d||isNaN(d))return false;
+        return d.toLocaleString('en-US',{month:'long',year:'numeric'})===mn;
+      });
+
+      const cTotal=mCoach.length;
+      const cYes=mCoach.filter(r=>String(r.coaching_delivered||'').toLowerCase()==='yes').length;
+      const cNo=mCoach.filter(r=>String(r.coaching_delivered||'').toLowerCase()==='no').length;
+      const cSch=mCoach.filter(r=>String(r.coaching_delivered||'').toLowerCase()==='scheduled').length;
+      const cPend=mCoach.filter(r=>!r.coaching_delivered||r.coaching_delivered==='').length;
+
+      const cw2=2.4,ch2=0.95,cy2=1.05,gap2=0.22;
+      const sx2=(W-(5*cw2+4*gap2))/2;
+      kpi(cs,sx2,cy2,cw2,ch2,'Fatal Fails',String(cTotal),'this month',C.amber);
+      kpi(cs,sx2+cw2+gap2,cy2,cw2,ch2,'Delivered',String(cYes),cTotal?Math.round(cYes/cTotal*100)+'%':'',cYes===cTotal&&cTotal>0?C.green:C.amber);
+      kpi(cs,sx2+(cw2+gap2)*2,cy2,cw2,ch2,'Not Delivered',String(cNo),'action needed',cNo>0?C.red:C.green);
+      kpi(cs,sx2+(cw2+gap2)*3,cy2,cw2,ch2,'Scheduled',String(cSch),'upcoming',C.blue);
+      kpi(cs,sx2+(cw2+gap2)*4,cy2,cw2,ch2,'Pending',String(cPend),'not actioned',cPend>0?C.amber:C.green);
+
+      cs.addText('Coaching detail — '+mn,{x:0.5,y:2.15,w:W-1,h:0.25,fontSize:11,bold:true,color:C.white,fontFace:'Arial'});
+      const sorted=mCoach.sort((a,b)=>{const o={'':0,'no':1,'scheduled':2,'yes':3};return (o[String(a.coaching_delivered||'').toLowerCase()]||0)-(o[String(b.coaching_delivered||'').toLowerCase()]||0);});
+      const coachRows=sorted.slice(0,12).map(r=>{
+        const s=String(r.coaching_delivered||'').toLowerCase();
+        const col=s==='yes'?C.green:s==='no'?C.red:s==='scheduled'?C.amber:C.muted;
+        const lbl=s==='yes'?'Delivered':s==='no'?'Not Delivered':s==='scheduled'?'Scheduled':'Pending';
+        return [{text:r.agent_name||'—',color:C.white},
+          {text:(r.team||'').replace(' Support',''),color:r.team==='Premium Support'?C.premium:C.partner},
+          {text:r.supervisor||'—',color:C.muted},
+          {text:String(r.event_date||'').substring(0,10),color:C.muted,mono:true},
+          {text:(r.question_name||'').replace('FATAL: ',''),color:C.text},
+          {text:r.section_name||'—',color:C.muted},
+          {text:lbl,color:col}];
+      });
+      tbl(cs,['Agent','Team','TL','Date','Fatal Question','Section','Coaching'],coachRows,0.5,2.42,W-1,[1.8,1.1,1.1,0.9,3.5,1.5,1.2]);
+      if(sorted.length>12) cs.addText('Showing 12 of '+sorted.length+' rows',{x:0.5,y:6.9,w:W-1,h:0.2,fontSize:8,color:C.muted,fontFace:'Arial'});
+    }
+
+    // ── SLIDE 5: FAILED QUESTIONS ──
+    const failedQ=RAW.failedQ;
+    if(failedQ.length){
+      const fqs=pres.addSlide(); addBg(fqs);
+      addTitle(fqs,'Top Failed Questions',mn||'');
+
+      const mFQ=failedQ.filter(r=>r.month===mn&&(!r.week_start||r.week_start===''));
+      const qMap={};
+      mFQ.forEach(r=>{const k=r.question_name;if(!k)return;if(!qMap[k])qMap[k]={q:r.question_name,sec:r.section_name,count:0};qMap[k].count+=parseInt(r.fail_count)||0;});
+      const topQ=Object.values(qMap).sort((a,b)=>b.count-a.count).slice(0,12);
+
+      const agMap={};
+      mFQ.forEach(r=>{const nm=r.agent_name;if(!nm)return;agMap[nm]=(agMap[nm]||0)+(parseInt(r.fail_count)||0);});
+      const agList=Object.entries(agMap).sort((a,b)=>b[1]-a[1]).slice(0,8);
+
+      fqs.addText('Top Failed Questions — Monthly Totals',{x:0.5,y:1.05,w:6,h:0.25,fontSize:11,bold:true,color:C.white,fontFace:'Arial'});
+      const qRows=topQ.map((q,i)=>[
+        {text:String(i+1)+'.',color:C.muted},
+        {text:q.q,color:C.text},
+        {text:q.sec,color:C.muted},
+        {text:String(q.count),color:C.red,align:'right',mono:true}
+      ]);
+      tbl(fqs,['#','Question','Section','Fails'],qRows,0.5,1.32,6.2,[0.35,3.9,1.3,0.65]);
+
+      fqs.addText('Fails per Agent',{x:7.1,y:1.05,w:5.7,h:0.25,fontSize:11,bold:true,color:C.white,fontFace:'Arial'});
+      const agRows=agList.map(([nm,cnt])=>[
+        {text:nm,color:C.text},
+        {text:String(cnt),color:C.red,align:'right',mono:true}
+      ]);
+      tbl(fqs,['Agent','Fails'],agRows,7.1,1.32,5.7,[4.8,0.9]);
+    }
+
+    // ── SLIDE 6: SECTION SCORES ──
+    const sections=RAW.sections;
+    if(sections.length){
+      const ss2=pres.addSlide(); addBg(ss2);
+      addTitle(ss2,'Section Scores',mn||'');
+      const mSec=sections.filter(r=>r.month===mn);
+      const pSec=mSec.filter(r=>r.team==='Premium Support');
+      const sSec=mSec.filter(r=>r.team==='Standard Support');
+
+      ss2.addText('Premium Support',{x:0.5,y:1.05,w:6,h:0.25,fontSize:11,bold:true,color:C.premium,fontFace:'Arial'});
+      const pSecRows=pSec.sort((a,b)=>b.avg_score_pct-a.avg_score_pct).map(r=>[
+        {text:r.section_name,color:C.text},
+        {text:n(r.avg_score_pct)+'%',color:sc(n(r.avg_score_pct),90),align:'right',mono:true},
+        {text:String(r.eval_count),color:C.muted,align:'right',mono:true}
+      ]);
+      tbl(ss2,['Section','Avg Score','Evals'],pSecRows,0.5,1.32,6.2,[4.2,1.1,0.9]);
+
+      ss2.addText('Standard Support',{x:7.1,y:1.05,w:5.7,h:0.25,fontSize:11,bold:true,color:C.partner,fontFace:'Arial'});
+      const sSecRows=sSec.sort((a,b)=>b.avg_score_pct-a.avg_score_pct).map(r=>[
+        {text:r.section_name,color:C.text},
+        {text:n(r.avg_score_pct)+'%',color:sc(n(r.avg_score_pct),80),align:'right',mono:true},
+        {text:String(r.eval_count),color:C.muted,align:'right',mono:true}
+      ]);
+      tbl(ss2,['Section','Avg Score','Evals'],sSecRows,7.1,1.32,5.7,[3.7,1.1,0.9]);
+    }
+
+    // ── SLIDE 7: DISPUTES ──
+    const disputes2=RAW.disputes;
+    if(disputes2.length){
+      const ds=pres.addSlide(); addBg(ds);
+      addTitle(ds,'Disputes & SLA',mn||'');
+      const mDisp=disputes2.filter(r=>{const d=new Date(r.created_at);return d.toLocaleString('en-US',{month:'long',year:'numeric'})===mn;});
+      const TLS2=[{name:'Radwa Aly'},{name:'Mai Hussein'},{name:'Karim Farrag'}];
+      const tlDRows=TLS2.map(tl=>{
+        const tr=mDisp.filter(r=>r.supervisor===tl.name);
+        const hrs=tr.filter(r=>r.tl_reply_hours&&r.tl_reply_hours!=='n/a'&&r.tl_reply_hours!=='pending').map(r=>parseFloat(r.tl_reply_hours)||0);
+        const avg2=hrs.length?(hrs.reduce((a,b)=>a+b,0)/hrs.length).toFixed(1):null;
+        const br=tr.filter(r=>r.tl_within_sla==='no').length;
+        const appr=tr.filter(r=>r.tl_decision==='approved').length;
+        const rej=tr.filter(r=>r.tl_decision==='rejected').length;
+        const pend=tr.filter(r=>!r.tl_decision||r.tl_decision==='pending').length;
+        return [{text:tl.name,color:C.white},
+          {text:String(tr.length),align:'right',mono:true,color:C.text},
+          {text:avg2?avg2+'h':'—',color:avg2?(parseFloat(avg2)<=48?C.green:C.red):C.muted,align:'right',mono:true},
+          {text:String(br),color:br>0?C.red:C.green,align:'right',mono:true},
+          {text:String(appr),color:C.green,align:'right',mono:true},
+          {text:String(rej),color:C.red,align:'right',mono:true},
+          {text:String(pend),color:C.amber,align:'right',mono:true}];
+      });
+      ds.addText('SLA per Team Lead',{x:0.5,y:1.05,w:W-1,h:0.25,fontSize:11,bold:true,color:C.white,fontFace:'Arial'});
+      tbl(ds,['Team Lead','Disputes','Avg Hrs','Breaches','Approved','Rejected','Pending'],tlDRows,0.5,1.32,W-1,[2.8,1.5,1.5,1.5,1.5,1.5,1.5]);
+
+      // Ticket list
+      ds.addText('All Dispute Tickets',{x:0.5,y:3.2,w:W-1,h:0.25,fontSize:11,bold:true,color:C.white,fontFace:'Arial'});
+      const tickRows=mDisp.slice(0,8).map(r=>{
+        const tlS=String(r.tl_within_sla||'');
+        const omS=String(r.omar_within_sla||'');
+        return [{text:'#'+r.ticket_id,color:C.blue,mono:true},
+          {text:r.agent_name||'—',color:C.white},
+          {text:(r.team||'').replace(' Support',''),color:r.team==='Premium Support'?C.premium:C.partner},
+          {text:r.tl_reply_hours||'—',color:r.tl_reply_hours>48?C.red:C.green,align:'right',mono:true},
+          {text:tlS==='yes'?'✓':tlS==='no'?'✗':'–',color:tlS==='yes'?C.green:tlS==='no'?C.red:C.muted,align:'center'},
+          {text:String(r.tl_decision||'—'),color:C.text},
+          {text:omS==='yes'?'✓':omS==='no'?'✗':'–',color:omS==='yes'?C.green:omS==='no'?C.red:C.muted,align:'center'},
+          {text:String(r.omar_decision||'—'),color:C.text}];
+      });
+      tbl(ds,['Ticket','Agent','Team','TL Hrs','TL SLA','TL Decision','Omar SLA','Omar Decision'],tickRows,0.5,3.48,W-1,[1.2,2.0,1.2,0.9,0.9,1.4,0.9,1.4]);
+    }
+
+    // helper: parse coaching date
+    function pcd(v){if(!v)return null;const s=String(v).trim();const p=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);if(p)return new Date(p[3]+'-'+p[2].padStart(2,'0')+'-'+p[1].padStart(2,'0'));return new Date(s.substring(0,10));}
+
+    // ── SLIDE 4: FATAL FAILS & COACHING ──
+    const coaching = RAW.coaching;
+    if(coaching.length){
+      const cs = pres.addSlide(); addBg(cs);
+      addTitle(cs,'Fatal Fails & Coaching Tracker',mn||wk||'');
+      const mCoach = coaching.filter(r=>{const d=pcd(r.event_date);if(!d||isNaN(d))return false;return d.toLocaleString('en-US',{month:'long',year:'numeric'})===mn;});
+      const cTotal=mCoach.length,cYes=mCoach.filter(r=>String(r.coaching_delivered||'').toLowerCase()==='yes').length,cNo=mCoach.filter(r=>String(r.coaching_delivered||'').toLowerCase()==='no').length,cSch=mCoach.filter(r=>String(r.coaching_delivered||'').toLowerCase()==='scheduled').length,cPend=mCoach.filter(r=>!r.coaching_delivered||r.coaching_delivered==='').length;
+      const cw2=2.4,ch2=0.95,cy2=1.05,gap2=0.22,sx2=(W-(5*cw2+4*gap2))/2;
+      kpi(cs,sx2,cy2,cw2,ch2,'Fatal Fails',String(cTotal),'this month',C.amber);
+      kpi(cs,sx2+cw2+gap2,cy2,cw2,ch2,'Delivered',String(cYes),cTotal?Math.round(cYes/cTotal*100)+'%':'',cYes===cTotal&&cTotal>0?C.green:C.amber);
+      kpi(cs,sx2+(cw2+gap2)*2,cy2,cw2,ch2,'Not Delivered',String(cNo),'action needed',cNo>0?C.red:C.green);
+      kpi(cs,sx2+(cw2+gap2)*3,cy2,cw2,ch2,'Scheduled',String(cSch),'upcoming',C.blue);
+      kpi(cs,sx2+(cw2+gap2)*4,cy2,cw2,ch2,'Pending',String(cPend),'not actioned',cPend>0?C.amber:C.green);
+      cs.addText('Coaching detail — '+mn,{x:0.5,y:2.15,w:W-1,h:0.25,fontSize:11,bold:true,color:C.white,fontFace:'Arial'});
+      const sorted=mCoach.sort((a,b)=>{const o={'':0,'no':1,'scheduled':2,'yes':3};return (o[String(a.coaching_delivered||'').toLowerCase()]||0)-(o[String(b.coaching_delivered||'').toLowerCase()]||0);});
+      const coachRows=sorted.slice(0,12).map(r=>{const s=String(r.coaching_delivered||'').toLowerCase();const col=s==='yes'?C.green:s==='no'?C.red:s==='scheduled'?C.amber:C.muted;const lbl=s==='yes'?'Delivered':s==='no'?'Not Delivered':s==='scheduled'?'Scheduled':'Pending';return [{text:r.agent_name||'—',color:C.white},{text:(r.team||'').replace(' Support',''),color:r.team==='Premium Support'?C.premium:C.partner},{text:r.supervisor||'—',color:C.muted},{text:String(r.event_date||'').substring(0,10),color:C.muted,mono:true},{text:(r.question_name||'').replace('FATAL: ',''),color:C.text},{text:r.section_name||'—',color:C.muted},{text:lbl,color:col}];});
+      tbl(cs,['Agent','Team','TL','Date','Fatal Question','Section','Coaching'],coachRows,0.5,2.42,W-1,[1.8,1.1,1.1,0.9,3.5,1.5,1.2]);
+      if(sorted.length>12) cs.addText('Showing 12 of '+sorted.length+' rows',{x:0.5,y:6.9,w:W-1,h:0.2,fontSize:8,color:C.muted,fontFace:'Arial'});
+    }
+
+    // ── SLIDE 5: FAILED QUESTIONS ──
+    if(RAW.failedQ.length){
+      const fqs=pres.addSlide(); addBg(fqs);
+      addTitle(fqs,'Top Failed Questions',mn||'');
+      const mFQ=RAW.failedQ.filter(r=>r.month===mn&&(!r.week_start||r.week_start===''));
+      const qMap={};mFQ.forEach(r=>{const k=r.question_name;if(!k)return;if(!qMap[k])qMap[k]={q:r.question_name,sec:r.section_name,count:0};qMap[k].count+=parseInt(r.fail_count)||0;});
+      const topQ=Object.values(qMap).sort((a,b)=>b.count-a.count).slice(0,12);
+      const agMap={};mFQ.forEach(r=>{const nm=r.agent_name;if(!nm)return;agMap[nm]=(agMap[nm]||0)+(parseInt(r.fail_count)||0);});
+      const agList=Object.entries(agMap).sort((a,b)=>b[1]-a[1]).slice(0,8);
+      fqs.addText('Top Failed Questions',{x:0.5,y:1.05,w:6,h:0.25,fontSize:11,bold:true,color:C.white,fontFace:'Arial'});
+      tbl(fqs,['#','Question','Section','Fails'],topQ.map((q,i)=>[{text:String(i+1)+'.',color:C.muted},{text:q.q,color:C.text},{text:q.sec,color:C.muted},{text:String(q.count),color:C.red,align:'right',mono:true}]),0.5,1.32,6.2,[0.35,3.9,1.3,0.65]);
+      fqs.addText('Fails per Agent',{x:7.1,y:1.05,w:5.7,h:0.25,fontSize:11,bold:true,color:C.white,fontFace:'Arial'});
+      tbl(fqs,['Agent','Fails'],agList.map(([nm,cnt])=>[{text:nm,color:C.text},{text:String(cnt),color:C.red,align:'right',mono:true}]),7.1,1.32,5.7,[4.8,0.9]);
+    }
+
+    // ── SLIDE 6: SECTION SCORES ──
+    if(RAW.sections.length){
+      const ss2=pres.addSlide(); addBg(ss2);
+      addTitle(ss2,'Section Scores',mn||'');
+      const mSec=RAW.sections.filter(r=>r.month===mn);
+      const pSec=mSec.filter(r=>r.team==='Premium Support');
+      const sSec=mSec.filter(r=>r.team==='Standard Support');
+      ss2.addText('Premium Support',{x:0.5,y:1.05,w:6,h:0.25,fontSize:11,bold:true,color:C.premium,fontFace:'Arial'});
+      tbl(ss2,['Section','Avg Score','Evals'],pSec.sort((a,b)=>b.avg_score_pct-a.avg_score_pct).map(r=>[{text:r.section_name,color:C.text},{text:n(r.avg_score_pct)+'%',color:sc(n(r.avg_score_pct),90),align:'right',mono:true},{text:String(r.eval_count),color:C.muted,align:'right',mono:true}]),0.5,1.32,6.2,[4.2,1.1,0.9]);
+      ss2.addText('Standard Support',{x:7.1,y:1.05,w:5.7,h:0.25,fontSize:11,bold:true,color:C.partner,fontFace:'Arial'});
+      tbl(ss2,['Section','Avg Score','Evals'],sSec.sort((a,b)=>b.avg_score_pct-a.avg_score_pct).map(r=>[{text:r.section_name,color:C.text},{text:n(r.avg_score_pct)+'%',color:sc(n(r.avg_score_pct),80),align:'right',mono:true},{text:String(r.eval_count),color:C.muted,align:'right',mono:true}]),7.1,1.32,5.7,[3.7,1.1,0.9]);
+    }
+
+    // ── SLIDE 7: DISPUTES ──
+    if(RAW.disputes.length){
+      const ds=pres.addSlide(); addBg(ds);
+      addTitle(ds,'Disputes & SLA',mn||'');
+      const mDisp=RAW.disputes.filter(r=>{const d=new Date(r.created_at);return d.toLocaleString('en-US',{month:'long',year:'numeric'})===mn;});
+      const TLS2=[{name:'Radwa Aly'},{name:'Mai Hussein'},{name:'Karim Farrag'}];
+      const tlDRows=TLS2.map(tl=>{const tr=mDisp.filter(r=>r.supervisor===tl.name);const hrs=tr.filter(r=>r.tl_reply_hours&&r.tl_reply_hours!=='n/a'&&r.tl_reply_hours!=='pending').map(r=>parseFloat(r.tl_reply_hours)||0);const avg2=hrs.length?(hrs.reduce((a,b)=>a+b,0)/hrs.length).toFixed(1):null;const br=tr.filter(r=>r.tl_within_sla==='no').length;const appr=tr.filter(r=>r.tl_decision==='approved').length;const rej=tr.filter(r=>r.tl_decision==='rejected').length;return [{text:tl.name,color:C.white},{text:String(tr.length),align:'right',mono:true,color:C.text},{text:avg2?avg2+'h':'—',color:avg2?(parseFloat(avg2)<=48?C.green:C.red):C.muted,align:'right',mono:true},{text:String(br),color:br>0?C.red:C.green,align:'right',mono:true},{text:String(appr),color:C.green,align:'right',mono:true},{text:String(rej),color:C.red,align:'right',mono:true}];});
+      ds.addText('SLA per Team Lead',{x:0.5,y:1.05,w:W-1,h:0.25,fontSize:11,bold:true,color:C.white,fontFace:'Arial'});
+      tbl(ds,['Team Lead','Disputes','Avg Hrs','Breaches','Approved','Rejected'],tlDRows,0.5,1.32,W-1,[2.8,1.8,1.8,1.8,1.8,1.8]);
+      ds.addText('All Dispute Tickets',{x:0.5,y:3.2,w:W-1,h:0.25,fontSize:11,bold:true,color:C.white,fontFace:'Arial'});
+      const tickRows=mDisp.slice(0,8).map(r=>{const tlS=String(r.tl_within_sla||'');const omS=String(r.omar_within_sla||'');return [{text:'#'+r.ticket_id,color:C.blue,mono:true},{text:r.agent_name||'—',color:C.white},{text:(r.team||'').replace(' Support',''),color:r.team==='Premium Support'?C.premium:C.partner},{text:r.tl_reply_hours||'—',color:r.tl_reply_hours>48?C.red:C.green,align:'right',mono:true},{text:tlS==='yes'?'Yes':tlS==='no'?'No':'—',color:tlS==='yes'?C.green:tlS==='no'?C.red:C.muted},{text:String(r.tl_decision||'—'),color:C.text},{text:omS==='yes'?'Yes':omS==='no'?'No':'—',color:omS==='yes'?C.green:omS==='no'?C.red:C.muted},{text:String(r.omar_decision||'—'),color:C.text}];});
+      tbl(ds,['Ticket','Agent','Team','TL Hrs','TL SLA','TL Decision','Omar SLA','Omar Decision'],tickRows,0.5,3.48,W-1,[1.1,2.0,1.2,0.9,0.9,1.5,0.9,1.5]);
     }
 
     // ── DOWNLOAD ──
