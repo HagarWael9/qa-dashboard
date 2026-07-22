@@ -310,11 +310,7 @@ td.bad  { color: var(--red); }
         <div class="kpi-row" id="wCoachingKpis"></div>
       </div>
 
-      <div class="panel" style="margin-bottom:16px">
-        <h3>Score distribution</h3>
-        <div class="cap">All agents in selected week — score spread</div>
-        <canvas id="weekScoreDistChart"></canvas>
-      </div>
+
     </div>
 
     <!-- ═══ MONTHLY VIEW ═══ -->
@@ -875,20 +871,7 @@ function renderWeekly(){
     options:{ plugins:{legend:{display:false}}, scales:{ x:{ticks:{color:cssVar('--muted')},grid:{display:false}}, y:{ticks:{color:cssVar('--muted')},grid:{color:cssVar('--border')},beginAtZero:true} } }
   });
 
-  // Score dist — use all supervisor rows to get per-agent scores
-  const agentList = Object.entries(agentScores).map(([nm,v])=>({nm,score:v.score})).sort((a,b)=>a.score-b.score);
-  destroyChart('weekDist');
-  charts.weekDist = new Chart(document.getElementById('weekScoreDistChart'),{
-    type:'bar',
-    data:{
-      labels: agentList.map(a=>a.nm.split(' ')[0]),
-      datasets:[{ label:'Score %', data:agentList.map(a=>a.score), backgroundColor: agentList.map(a=>{
-          const tgt = a.team==='Premium Support'?90:80;
-          return a.score>=tgt?cssVar('--green'):a.score>=(tgt*0.9)?cssVar('--amber'):cssVar('--red');
-        }), borderRadius:4 }]
-    },
-    options:{ plugins:{legend:{display:false}}, scales:{ x:{ticks:{color:cssVar('--muted'),font:{size:9}},grid:{display:false}}, y:{ticks:{color:cssVar('--muted')},grid:{color:cssVar('--border')},min:50,max:100} } }
-  });
+
 
   // TL scores table
   const TL_LIST = [
